@@ -1,4 +1,11 @@
 .clang_complete
 .gcc-flags.json
+
+## platform io
 .pioenvs
+.piolibdeps
+
+## sublime text
+*.sublime-workspace
+*.sublime-project
 
