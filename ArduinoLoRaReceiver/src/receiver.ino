@@ -1,12 +1,12 @@
-// rf95_server.pde
-// -*- mode: C++ -*-
-// Example sketch showing how to create a simple messageing server
-// with the RH_RF95 class. RH_RF95 class does not provide for addressing or
-// reliability, so you should only use RH_RF95  if you do not need the higher
-// level messaging abilities.
-// It is designed to work with the other example rf95_client
-// Tested with Anarduino MiniWirelessLoRa, Rocket Scream Mini Ultra Pro with
-// the RFM95W, Adafruit Feather M0 with RFM95
+/*
+
+Based on:
+
+- RadioHead rf95_reliable_datagram_server.pde sample
+    http://www.airspayce.com/mikem/arduino/RadioHead/
+- Sending sensor readings
+    https://forum.arduino.cc/index.php?topic=355434.0
+ */
 
 #include <SPI.h>
 #include <RH_RF95.h>
@@ -21,12 +21,14 @@ RH_RF95 driver;
 // Class to manage message delivery and receipt, using the driver declared above
 RHReliableDatagram manager(driver, RECEIVER_ADDRESS);
 
-int led = 13;
+uint8_t led = LED_BUILTIN;
 
+// define what data is send
 struct datagram {
-    float dust_concentration;
-    unsigned long counter;
-     
+    uint32_t dustConcentration;
+    uint8_t concentrationNormalizer;
+    uint32_t counter;
+
 } SensorReadings;
 
 void setup() {
@@ -35,7 +37,7 @@ void setup() {
     Serial.begin(9600);
     // Wait for serial port to be available
     while (!Serial) ;
-    
+
     if (!manager.init()) {
         Serial.println("init failed");
     }
@@ -50,9 +52,10 @@ void loop() {
         uint8_t len = sizeof(buf);
 
         if (manager.available()) {
-            // Wait for a message addressed to us from the client
+            // Wait for a message addressed to us from the transmitter
             if (manager.recvfromAck(buf, &len, &from))
             {
+                digitalWrite(led, HIGH);
                 memcpy(&SensorReadings, buf, sizeof(SensorReadings));
                 Serial.println("--------------------------------------------");
                 Serial.print("Got message from unit: ");
@@ -60,13 +63,17 @@ void loop() {
                 Serial.print("Transmission number: ");
                 Serial.println(SensorReadings.counter);
                 Serial.println("");
-                
+
+                uint8_t normalizer = SensorReadings.concentrationNormalizer == 0
+                    ? 1
+                    : SensorReadings.concentrationNormalizer;
+                float concentration = SensorReadings.dustConcentration / (float) normalizer;
                 Serial.print("Dust concentration: ");
-                Serial.println(SensorReadings.dust_concentration);
-                
+                Serial.println(concentration);
+
                 Serial.println("--------------------------------------------");
+                digitalWrite(led, LOW);
             }
         }
     }
 }
-

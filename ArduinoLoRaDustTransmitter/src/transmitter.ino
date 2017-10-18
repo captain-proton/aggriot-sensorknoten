@@ -3,7 +3,7 @@ Based on:
 
 - Grove - Dust Sensor Demo v1.0
     https://github.com/Seeed-Studio/Grove_Dust_Sensor/blob/master/Grove_Dust_Sensor.ino
-- RadioHead rf95_server.pde sample
+- RadioHead rf95_reliable_datagram_client.pde sample
     http://www.airspayce.com/mikem/arduino/RadioHead/
 - Sending sensor readings
     https://forum.arduino.cc/index.php?topic=355434.0
@@ -17,11 +17,12 @@ Based on:
 #define TRANSMITTER_ADDRESS     1
 #define RECEIVER_ADDRESS        2
 
-int srcpin = 8;
-unsigned long duration;
-unsigned long starttime;
-unsigned long sampletime_ms = 2000;
-unsigned long lowpulseoccupancy = 0;
+uint8_t srcpin = 8;
+uint8_t led = LED_BUILTIN;
+uint32_t duration;
+uint32_t starttime;
+uint32_t sampletime_ms = 30000;
+uint32_t lowpulseoccupancy = 0;
 float ratio = 0;
 float concentration = 0;
 
@@ -33,9 +34,10 @@ RHReliableDatagram manager(driver, TRANSMITTER_ADDRESS);
 
 // define what data is send
 struct datagram {
-    float dust_concentration;
-    unsigned long counter;
-     
+    uint32_t dustConcentration;
+    uint8_t concentrationNormalizer;
+    uint32_t counter;
+
 } SensorReadings;
 
 /*
@@ -67,6 +69,9 @@ void setup()
 
     // millis() returns 0 for arduino start time
     starttime = millis();
+
+    SensorReadings.concentrationNormalizer = 100;
+    SensorReadings.counter = 0;
 }
 
 // called after setup(). loops consecutively. there is not guarantee that
@@ -92,8 +97,7 @@ void loop()
         // using spec sheet curve
         concentration = 1.1 * pow(ratio, 3) - 3.8 * pow(ratio, 2) + 520 * ratio + 0.62;
 
-        // dummy
-        SensorReadings.dust_concentration = 47.11;
+        SensorReadings.dustConcentration = (uint32_t) (concentration * SensorReadings.concentrationNormalizer);
 
         Serial.print(" concentration = ");
         Serial.print(concentration);
@@ -113,17 +117,24 @@ RECEIVER_ADDRESS
 */
 void sendSensorReadings() {
 
-    uint8_t buf[sizeof(SensorReadings)];
-
     uint8_t dataFrameSize = sizeof(SensorReadings);
+    /*
+    sensor readings are going to be send, therefor the buffer
+    have to has the size of the struct
+    */
+    uint8_t buf[dataFrameSize];
+    // copy all data from sensor readings into the buffer
     memcpy(buf, &SensorReadings, dataFrameSize);
 
-    Serial.println("Sending to rf95_reliable_datagram_server");
+    Serial.print("Sending to ");
+    Serial.println(RECEIVER_ADDRESS);
 
+    digitalWrite(led, HIGH);
     if (manager.sendtoWait(buf, dataFrameSize, RECEIVER_ADDRESS)) {
         Serial.println("Message sent");
+        SensorReadings.counter = SensorReadings.counter + 1;
     } else {
-        Serial.println("sendto failed");
+        Serial.println("sendtoWait failed");
     }
-    SensorReadings.counter = SensorReadings.counter + 1;
+    digitalWrite(led, LOW);
 }
