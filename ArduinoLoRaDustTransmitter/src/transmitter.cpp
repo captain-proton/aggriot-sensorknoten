@@ -9,6 +9,7 @@ Based on:
     https://forum.arduino.cc/index.php?topic=355434.0
  */
 
+#include <Arduino.h>
 #include <SPI.h>
 #include <RH_RF95.h>
 #include <RHReliableDatagram.h>
@@ -39,6 +40,34 @@ struct datagram {
     uint32_t counter;
 
 } SensorReadings;
+
+/*
+Sends all data given in SensorReadings to the receiver defined by
+RECEIVER_ADDRESS
+*/
+void sendSensorReadings() {
+
+    uint8_t dataFrameSize = sizeof(SensorReadings);
+    /*
+    sensor readings are going to be send, therefor the buffer
+    have to has the size of the struct
+    */
+    uint8_t buf[dataFrameSize];
+    // copy all data from sensor readings into the buffer
+    memcpy(buf, &SensorReadings, dataFrameSize);
+
+    Serial.print("Sending to ");
+    Serial.println(RECEIVER_ADDRESS);
+
+    digitalWrite(led, HIGH);
+    if (manager.sendtoWait(buf, dataFrameSize, RECEIVER_ADDRESS)) {
+        Serial.println("Message sent");
+        SensorReadings.counter = SensorReadings.counter + 1;
+    } else {
+        Serial.println("sendtoWait failed");
+    }
+    digitalWrite(led, LOW);
+}
 
 /*
 Take a look at the arduino reference page for detailed function
@@ -109,32 +138,4 @@ void loop()
         lowpulseoccupancy = 0;
         starttime = millis();
     }
-}
-
-/*
-Sends all data given in SensorReadings to the receiver defined by
-RECEIVER_ADDRESS
-*/
-void sendSensorReadings() {
-
-    uint8_t dataFrameSize = sizeof(SensorReadings);
-    /*
-    sensor readings are going to be send, therefor the buffer
-    have to has the size of the struct
-    */
-    uint8_t buf[dataFrameSize];
-    // copy all data from sensor readings into the buffer
-    memcpy(buf, &SensorReadings, dataFrameSize);
-
-    Serial.print("Sending to ");
-    Serial.println(RECEIVER_ADDRESS);
-
-    digitalWrite(led, HIGH);
-    if (manager.sendtoWait(buf, dataFrameSize, RECEIVER_ADDRESS)) {
-        Serial.println("Message sent");
-        SensorReadings.counter = SensorReadings.counter + 1;
-    } else {
-        Serial.println("sendtoWait failed");
-    }
-    digitalWrite(led, LOW);
 }
