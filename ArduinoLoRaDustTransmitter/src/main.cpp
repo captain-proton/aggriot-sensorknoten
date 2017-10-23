@@ -16,16 +16,20 @@ Based on:
 
 #include "DustCalculator.h"
 #include "LoRaTransmitter.h"
+#include "TemperatureHumiditySensor.h"
 #include "SensorReadings.h"
 
 /* Must be defined if RHReliableDatagram is used */
 #define TRANSMITTER_ADDRESS     1
 #define RECEIVER_ADDRESS        2
 
+#define SENSOR_DELAY_MS         2000
+
 uint8_t srcpin = 8;
 uint8_t led = LED_BUILTIN;
 
 DustCalculator dustCalculator(30000);
+TemperatureHumiditySensor tempSensor(A0);
 LoRaTransmitter transmitter(TRANSMITTER_ADDRESS);
 SensorReadings readings;
 
@@ -48,6 +52,8 @@ void setup()
     if (!transmitter.init())
         Serial.println("init failed");
 
+    tempSensor.init();
+
     // The default transmitter power is 13dBm, using PA_BOOST.
     // If you are using RFM95/96/97/98 modules which uses the PA_BOOST
     // transmitter pin, then you can set transmitter powers from 5 to 23 dBm:
@@ -56,7 +62,7 @@ void setup()
     // read from pin 8
     pinMode(srcpin, INPUT);
 
-    readings.concentrationNormalizer = 100;
+    readings.floatNormalizer = 100;
     readings.counter = 0;
 }
 
@@ -68,7 +74,18 @@ void loop()
         dustCalculator.print();
         float concentration = dustCalculator.getConcentration();
 
-        readings.dustConcentration = (uint32_t) (concentration * readings.concentrationNormalizer);
-        transmitter.send(RECEIVER_ADDRESS, &readings);
+        readings.dustConcentration = (uint32_t) (concentration * readings.floatNormalizer);
     }
+
+    if (tempSensor.read()) {
+        tempSensor.print();
+        float temperature = tempSensor.getTemperature();
+        float humidity = tempSensor.getHumidity();
+
+        readings.temperature = (uint32_t) (temperature * readings.floatNormalizer);
+        readings.humidity = (uint32_t) (humidity * readings.floatNormalizer);
+    }
+
+    transmitter.send(RECEIVER_ADDRESS, &readings);
+    delay(SENSOR_DELAY_MS);
 }
