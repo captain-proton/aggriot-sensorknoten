@@ -12,6 +12,8 @@ Based on:
 #include <RH_RF95.h>
 #include <RHReliableDatagram.h>
 
+#include "SensorReadings.h"
+
 #define TRANSMITTER_ADDRESS     1
 #define RECEIVER_ADDRESS        2
 
@@ -23,13 +25,7 @@ RHReliableDatagram manager(driver, RECEIVER_ADDRESS);
 
 uint8_t led = LED_BUILTIN;
 
-// define what data is send
-struct datagram {
-    uint32_t dustConcentration;
-    uint8_t concentrationNormalizer;
-    uint32_t counter;
-
-} SensorReadings;
+SensorReadings readings;
 
 void setup() {
 
@@ -56,20 +52,29 @@ void loop() {
             if (manager.recvfromAck(buf, &len, &from))
             {
                 digitalWrite(led, HIGH);
-                memcpy(&SensorReadings, buf, sizeof(SensorReadings));
+                memcpy(&readings, buf, sizeof(SensorReadings));
                 Serial.println("--------------------------------------------");
                 Serial.print("Got message from unit: ");
                 Serial.println(from, HEX);
                 Serial.print("Transmission number: ");
-                Serial.println(SensorReadings.counter);
+                Serial.println(readings.counter);
                 Serial.println("");
 
-                uint8_t normalizer = SensorReadings.concentrationNormalizer == 0
+                uint8_t normalizer = readings.floatNormalizer == 0
                     ? 1
-                    : SensorReadings.concentrationNormalizer;
-                float concentration = SensorReadings.dustConcentration / (float) normalizer;
+                    : readings.floatNormalizer;
+
+                float concentration = readings.dustConcentration / (float) normalizer;
                 Serial.print("Dust concentration: ");
                 Serial.println(concentration);
+
+                float humidity = readings.humidity / (float) normalizer;
+                float temperature = readings.temperature / (float) normalizer;
+                Serial.print("Humidity: ");
+                Serial.print(humidity);
+                Serial.print(" %\t");
+                Serial.print("Temperature: ");
+                Serial.println(temperature);
 
                 Serial.println("--------------------------------------------");
                 digitalWrite(led, LOW);
