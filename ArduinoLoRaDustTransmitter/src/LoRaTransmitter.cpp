@@ -20,7 +20,12 @@ boolean LoRaTransmitter::init() {
     RHReliableDatagram manager(driver, _address);
     _manager = &manager;
 
-    return _manager->init() ? true : false;
+    if (_manager->init()) {
+        driver.setFrequency(433);
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void LoRaTransmitter::send(uint16_t receiver, SensorReadings *readings) {
