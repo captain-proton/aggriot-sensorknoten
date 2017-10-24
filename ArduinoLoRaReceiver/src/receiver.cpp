@@ -25,8 +25,10 @@ RH_RF95 driver;
 // Class to manage message delivery and receipt, using the driver declared above
 RHReliableDatagram manager(driver, RECEIVER_ADDRESS);
 
+/* the led is used to highlight if a message is received. */
 uint8_t led = LED_BUILTIN;
 
+/* data container */
 SensorReadings readings;
 
 void setup() {
@@ -52,15 +54,15 @@ void printMessageHeader(uint8_t from, uint32_t number) {
 }
 
 void printDustConcentration(uint8_t normalizer, SensorReadings *readings) {
-    float concentration = readings->dustConcentration / (float) normalizer;
+    float concentration = readings->dustConcentration_f / (float) normalizer;
     Serial.print("Dust concentration: ");
     Serial.println(concentration);
 }
 
 void printWeather(uint8_t normalizer, SensorReadings *readings) {
 
-    float humidity = readings->humidity / (float) normalizer;
-    float temperature = readings->temperature / (float) normalizer;
+    float humidity = readings->humidity_f / (float) normalizer;
+    float temperature = readings->temperature_f / (float) normalizer;
     Serial.print("Humidity: ");
     Serial.print(humidity);
     Serial.print(" %\t");
@@ -80,32 +82,30 @@ void printLight(SensorReadings *readings) {
 }
 
 void loop() {
+
+    // Dont put this on the stack:
+    uint8_t buf[sizeof(SensorReadings)];
+    uint8_t from;
+    uint8_t len = sizeof(buf);
+
     if (manager.available()) {
+        // Wait for a message addressed to us from the transmitter
+        if (manager.recvfromAck(buf, &len, &from))
+        {
+            digitalWrite(led, HIGH);
+            memcpy(&readings, buf, sizeof(SensorReadings));
 
-        // Dont put this on the stack:
-        uint8_t buf[sizeof(SensorReadings)];
-        uint8_t from;
-        uint8_t len = sizeof(buf);
+            uint8_t normalizer = readings.floatNormalizer == 0
+                ? 1
+                : readings.floatNormalizer;
 
-        if (manager.available()) {
-            // Wait for a message addressed to us from the transmitter
-            if (manager.recvfromAck(buf, &len, &from))
-            {
-                digitalWrite(led, HIGH);
-                memcpy(&readings, buf, sizeof(SensorReadings));
+            printMessageHeader(from, readings.counter);
+            printDustConcentration(normalizer, &readings);
+            printWeather(normalizer, &readings);
+            printLight(&readings);
 
-                uint8_t normalizer = readings.floatNormalizer == 0
-                    ? 1
-                    : readings.floatNormalizer;
-
-                printMessageHeader(from, readings.counter);
-                printDustConcentration(normalizer, &readings);
-                printWeather(normalizer, &readings);
-                printLight(&readings);
-
-                Serial.println(DIVIDER);
-                digitalWrite(led, LOW);
-            }
+            Serial.println(DIVIDER);
+            digitalWrite(led, LOW);
         }
     }
 }

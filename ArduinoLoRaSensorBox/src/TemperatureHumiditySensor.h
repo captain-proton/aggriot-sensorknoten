@@ -1,3 +1,11 @@
+/*
+Based on:
+
+- Seeed Wiki
+    http://wiki.seeed.cc/Grove-TemperatureAndHumidity_Sensor/
+- DHTstable library
+    https://github.com/RobTillaart/Arduino/tree/master/libraries/DHTstable
+ */
 #ifndef TempHum_H
 #define TempHum_H
 

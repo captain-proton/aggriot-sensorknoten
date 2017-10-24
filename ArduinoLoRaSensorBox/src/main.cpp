@@ -1,12 +1,19 @@
 /*
-Based on:
+Arduino LoRa Sensor Box
 
-- Grove - Dust Sensor Demo v1.0
-    https://github.com/Seeed-Studio/Grove_Dust_Sensor/blob/master/Grove_Dust_Sensor.ino
-- RadioHead rf95_reliable_datagram_client.pde sample
-    http://www.airspayce.com/mikem/arduino/RadioHead/
-- Sending sensor readings
-    https://forum.arduino.cc/index.php?topic=355434.0
+Uses various sensors to read environment data and sends it
+via lora to an aggregator. At this moment all sensors have to
+be connected to specific ports:
+
+Dust                D8
+Light               A1
+Temp and Humidity   A0
+
+Warning! Do not use delay() in any class, as some calculations block the
+application to sample data (ex. dust). It may cause unexpected values.
+
+Sensor data may be in the form of float values. On transmission these values
+are normalized. They are marked with the suffix _f.
  */
 
 #include <Arduino.h>
@@ -24,43 +31,50 @@ Based on:
 #define TRANSMITTER_ADDRESS     1
 #define RECEIVER_ADDRESS        2
 
+/* Time dust values are measured */
 #define DUST_MEASURING_TIME     10000
+
+/*
+Do not send data on every loop. the delay is used to calculate if data
+should be send or not.
+*/
 #define SEND_DELAY_MS           10000
 
+/* SENSORS */
 DustCalculator dustCalculator(DUST_MEASURING_TIME, 8);
 TemperatureHumiditySensor tempSensor(A0);
 LightSensor lightSensor(A1);
+
+/* Transmission via LoRa */
 LoRaTransmitter transmitter(TRANSMITTER_ADDRESS);
+
+/* Data container that is delivered over the network */
 SensorReadings readings;
 
+/* Contains the 'time' a message was transmitted */
 uint32_t lastSendTime;
-
-/*
-Take a look at the arduino reference page for detailed function
-descriptions.
-
-https://www.arduino.cc/en/Reference/HomePage
-*/
 
 void readDust() {
 
     if (dustCalculator.calculate()) {
+
         dustCalculator.print();
         float concentration = dustCalculator.getConcentration();
 
-        readings.dustConcentration = (uint32_t) (concentration * readings.floatNormalizer);
+        readings.dustConcentration_f = (uint32_t) (concentration * readings.floatNormalizer);
     }
 }
 
 void readWeather() {
 
     if (tempSensor.read()) {
+
         tempSensor.print();
         float temperature = tempSensor.getTemperature();
         float humidity = tempSensor.getHumidity();
 
-        readings.temperature = (uint32_t) (temperature * readings.floatNormalizer);
-        readings.humidity = (uint32_t) (humidity * readings.floatNormalizer);
+        readings.temperature_f = (uint32_t) (temperature * readings.floatNormalizer);
+        readings.humidity_f = (uint32_t) (humidity * readings.floatNormalizer);
     }
 }
 
@@ -74,7 +88,9 @@ void readLight() {
 
 void sendData() {
 
+    // wait until delay is reached
     if ((millis() - lastSendTime) >= SEND_DELAY_MS) {
+
         lastSendTime = millis();
         transmitter.send(RECEIVER_ADDRESS, &readings);
     }
