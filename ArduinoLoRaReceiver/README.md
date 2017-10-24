@@ -11,17 +11,6 @@
 
 > cd Sensorknoten/ArduinoLoRaReceiver
 
-# Installation der RadioHead Bibliothek
-> pio lib install RadioHead
-```
-Nach Installation der `RadioHead` Bibliothek muss die Frequenz für den Treiber angepasst werden. In der Datei `.piolibdeps/RadioHead_ID124/RH_RF95.cpp` muss in der `init` Methode des Treiber die Frequenz auf 433 gesetzt werden.
-
-```c
-// An innocuous ISM frequency, same as RF22's
-setFrequency(433.0);
-```
-
-```bash
 # Bauen und Upload
 > platformio run --target upload
 
