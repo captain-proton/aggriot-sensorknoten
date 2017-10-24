@@ -15,6 +15,11 @@ boolean LoRaTransmitter::init() {
     // Singleton instance of the radio driver
     RH_RF95 driver;
 
+    // The default transmitter power is 13dBm, using PA_BOOST.
+    // If you are using RFM95/96/97/98 modules which uses the PA_BOOST
+    // transmitter pin, then you can set transmitter powers from 5 to 23 dBm:
+    // driver.setTxPower(23, false);
+
     // Class to manage message delivery and receipt, using the driver declared above
     // do NOT move this to the constructor
     RHReliableDatagram manager(driver, _address);

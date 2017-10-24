@@ -6,9 +6,10 @@
 class DustCalculator {
 
 public:
-    DustCalculator(uint32_t sampletimeMs);
+    DustCalculator(uint32_t sampletimeMs, uint8_t srcPin);
+    void init();
     float getConcentration();
-    boolean isCalculated();
+    boolean calculate();
     void print();
 private:
     uint32_t _duration;
@@ -17,6 +18,7 @@ private:
     uint32_t _sampleTimeMs;
     uint8_t _srcPin;
     float _ratio;
+    float _concentration;
 };
 
 #endif

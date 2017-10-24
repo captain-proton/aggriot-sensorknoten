@@ -24,16 +24,16 @@ Based on:
 #define TRANSMITTER_ADDRESS     1
 #define RECEIVER_ADDRESS        2
 
-#define SENSOR_DELAY_MS         2000
+#define DUST_MEASURING_TIME     10000
+#define SEND_DELAY_MS           10000
 
-uint8_t srcpin = 8;
-uint8_t led = LED_BUILTIN;
-
-DustCalculator dustCalculator(30000);
+DustCalculator dustCalculator(DUST_MEASURING_TIME, 8);
 TemperatureHumiditySensor tempSensor(A0);
 LightSensor lightSensor(A1);
 LoRaTransmitter transmitter(TRANSMITTER_ADDRESS);
 SensorReadings readings;
+
+uint32_t lastSendTime;
 
 /*
 Take a look at the arduino reference page for detailed function
@@ -42,35 +42,9 @@ descriptions.
 https://www.arduino.cc/en/Reference/HomePage
 */
 
-// start of the sketch
-void setup()
-{
-    // data rate in bits per second for serial transmission
-    Serial.begin(9600);
-
-    // Wait for serial port to be available
-    while (!Serial) ;
-
-    if (!transmitter.init())
-        Serial.println("init failed");
-
-    tempSensor.init();
-
-    // The default transmitter power is 13dBm, using PA_BOOST.
-    // If you are using RFM95/96/97/98 modules which uses the PA_BOOST
-    // transmitter pin, then you can set transmitter powers from 5 to 23 dBm:
-    // driver.setTxPower(23, false);
-
-    // read from pin 8
-    pinMode(srcpin, INPUT);
-
-    readings.floatNormalizer = 100;
-    readings.counter = 0;
-}
-
 void readDust() {
 
-    if (dustCalculator.isCalculated()) {
+    if (dustCalculator.calculate()) {
         dustCalculator.print();
         float concentration = dustCalculator.getConcentration();
 
@@ -90,18 +64,40 @@ void readWeather() {
     }
 }
 
-void readLight(boolean print = false) {
+void readLight() {
 
     lightSensor.read();
-    if (print)
-        lightSensor.print();
+    lightSensor.print();
     readings.lightSensorValue = lightSensor.getSensorData();
     readings.lightResistance = lightSensor.getResistance();
 }
 
 void sendData() {
 
-    transmitter.send(RECEIVER_ADDRESS, &readings);
+    if ((millis() - lastSendTime) >= SEND_DELAY_MS) {
+        lastSendTime = millis();
+        transmitter.send(RECEIVER_ADDRESS, &readings);
+    }
+}
+
+// start of the sketch
+void setup()
+{
+    // data rate in bits per second for serial transmission
+    Serial.begin(9600);
+
+    // Wait for serial port to be available
+    while (!Serial) ;
+
+    if (!transmitter.init())
+        Serial.println("init failed");
+
+    tempSensor.init();
+    dustCalculator.init();
+
+    lastSendTime = millis();
+    readings.floatNormalizer = 100;
+    readings.counter = 0;
 }
 
 // called after setup(). loops consecutively. there is not guarantee that
@@ -110,9 +106,7 @@ void loop()
 {
     readDust();
     readWeather();
-    readLight(true);
+    readLight();
 
     sendData();
-
-    delay(SENSOR_DELAY_MS);
 }
