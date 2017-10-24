@@ -40,7 +40,10 @@ void setup() {
 
     if (!manager.init()) {
         Serial.println("init failed");
+    } else {
+        driver.setFrequency(433);
     }
+
 }
 
 void printMessageHeader(uint8_t from, uint32_t number) {
