@@ -17,6 +17,8 @@ Based on:
 #define TRANSMITTER_ADDRESS     1
 #define RECEIVER_ADDRESS        2
 
+#define DIVIDER "--------------------------------------------"
+
 // Singleton instance of the radio driver
 RH_RF95 driver;
 
@@ -39,6 +41,44 @@ void setup() {
     }
 }
 
+void printMessageHeader(uint8_t from, uint32_t number) {
+
+    Serial.println(DIVIDER);
+    Serial.print("Got message from unit: ");
+    Serial.println(from, HEX);
+    Serial.print("Transmission number: ");
+    Serial.println(number);
+    Serial.println("");
+}
+
+void printDustConcentration(uint8_t normalizer, SensorReadings *readings) {
+    float concentration = readings->dustConcentration / (float) normalizer;
+    Serial.print("Dust concentration: ");
+    Serial.println(concentration);
+}
+
+void printWeather(uint8_t normalizer, SensorReadings *readings) {
+
+    float humidity = readings->humidity / (float) normalizer;
+    float temperature = readings->temperature / (float) normalizer;
+    Serial.print("Humidity: ");
+    Serial.print(humidity);
+    Serial.print(" %\t");
+    Serial.print("Temperature: ");
+    Serial.println(temperature);
+}
+
+void printLight(SensorReadings *readings) {
+
+    uint16_t lightSensorValue = readings->lightSensorValue;
+    uint16_t lightResistance = readings->lightResistance;
+    Serial.print("Light intensity: ");
+    Serial.print(lightSensorValue);
+    Serial.print("\t");
+    Serial.print("resistance: ");
+    Serial.println(lightResistance);
+}
+
 void loop() {
     if (manager.available()) {
 
@@ -53,30 +93,17 @@ void loop() {
             {
                 digitalWrite(led, HIGH);
                 memcpy(&readings, buf, sizeof(SensorReadings));
-                Serial.println("--------------------------------------------");
-                Serial.print("Got message from unit: ");
-                Serial.println(from, HEX);
-                Serial.print("Transmission number: ");
-                Serial.println(readings.counter);
-                Serial.println("");
 
                 uint8_t normalizer = readings.floatNormalizer == 0
                     ? 1
                     : readings.floatNormalizer;
 
-                float concentration = readings.dustConcentration / (float) normalizer;
-                Serial.print("Dust concentration: ");
-                Serial.println(concentration);
+                printMessageHeader(from, readings.counter);
+                printDustConcentration(normalizer, &readings);
+                printWeather(normalizer, &readings);
+                printLight(&readings);
 
-                float humidity = readings.humidity / (float) normalizer;
-                float temperature = readings.temperature / (float) normalizer;
-                Serial.print("Humidity: ");
-                Serial.print(humidity);
-                Serial.print(" %\t");
-                Serial.print("Temperature: ");
-                Serial.println(temperature);
-
-                Serial.println("--------------------------------------------");
+                Serial.println(DIVIDER);
                 digitalWrite(led, LOW);
             }
         }

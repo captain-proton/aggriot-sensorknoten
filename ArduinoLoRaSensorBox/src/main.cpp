@@ -17,6 +17,7 @@ Based on:
 #include "DustCalculator.h"
 #include "LoRaTransmitter.h"
 #include "TemperatureHumiditySensor.h"
+#include "LightSensor.h"
 #include "SensorReadings.h"
 
 /* Must be defined if RHReliableDatagram is used */
@@ -30,6 +31,7 @@ uint8_t led = LED_BUILTIN;
 
 DustCalculator dustCalculator(30000);
 TemperatureHumiditySensor tempSensor(A0);
+LightSensor lightSensor(A1);
 LoRaTransmitter transmitter(TRANSMITTER_ADDRESS);
 SensorReadings readings;
 
@@ -66,16 +68,17 @@ void setup()
     readings.counter = 0;
 }
 
-// called after setup(). loops consecutively. there is not guarantee that
-// it is called in constant gaps
-void loop()
-{
+void readDust() {
+
     if (dustCalculator.isCalculated()) {
         dustCalculator.print();
         float concentration = dustCalculator.getConcentration();
 
         readings.dustConcentration = (uint32_t) (concentration * readings.floatNormalizer);
     }
+}
+
+void readWeather() {
 
     if (tempSensor.read()) {
         tempSensor.print();
@@ -85,7 +88,31 @@ void loop()
         readings.temperature = (uint32_t) (temperature * readings.floatNormalizer);
         readings.humidity = (uint32_t) (humidity * readings.floatNormalizer);
     }
+}
+
+void readLight(boolean print = false) {
+
+    lightSensor.read();
+    if (print)
+        lightSensor.print();
+    readings.lightSensorValue = lightSensor.getSensorData();
+    readings.lightResistance = lightSensor.getResistance();
+}
+
+void sendData() {
 
     transmitter.send(RECEIVER_ADDRESS, &readings);
+}
+
+// called after setup(). loops consecutively. there is not guarantee that
+// it is called in constant gaps
+void loop()
+{
+    readDust();
+    readWeather();
+    readLight(true);
+
+    sendData();
+
     delay(SENSOR_DELAY_MS);
 }
