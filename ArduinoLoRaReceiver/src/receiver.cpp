@@ -84,6 +84,12 @@ void printLight(SensorReadings *readings) {
     Serial.println(lightResistance);
 }
 
+void printLoudness(SensorReadings * readings) {
+    uint16_t loudness = readings->loudnessMean;
+    Serial.print("Loudness (mean): ");
+    Serial.println(loudness);
+}
+
 void loop() {
 
     // Dont put this on the stack:
@@ -106,6 +112,7 @@ void loop() {
             printDustConcentration(normalizer, &readings);
             printWeather(normalizer, &readings);
             printLight(&readings);
+            printLoudness(&readings);
 
             Serial.println(DIVIDER);
             digitalWrite(led, LOW);

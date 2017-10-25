@@ -25,6 +25,7 @@ are normalized. They are marked with the suffix _f.
 #include "LoRaTransmitter.h"
 #include "TemperatureHumiditySensor.h"
 #include "LightSensor.h"
+#include "SoundSensor.h"
 #include "SensorReadings.h"
 
 /* Must be defined if RHReliableDatagram is used */
@@ -44,6 +45,7 @@ should be send or not.
 DustCalculator dustCalculator(DUST_MEASURING_TIME, 8);
 TemperatureHumiditySensor tempSensor(A0);
 LightSensor lightSensor(A1);
+SoundSensor soundSensor(A2);
 
 /* Transmission via LoRa */
 LoRaTransmitter transmitter(TRANSMITTER_ADDRESS);
@@ -73,8 +75,8 @@ void readWeather() {
         float temperature = tempSensor.getTemperature();
         float humidity = tempSensor.getHumidity();
 
-        readings.temperature_f = (uint32_t) (temperature * readings.floatNormalizer);
-        readings.humidity_f = (uint32_t) (humidity * readings.floatNormalizer);
+        readings.temperature_f = (uint16_t) (temperature * readings.floatNormalizer);
+        readings.humidity_f = (uint16_t) (humidity * readings.floatNormalizer);
     }
 }
 
@@ -86,14 +88,23 @@ void readLight() {
     readings.lightResistance = lightSensor.getResistance();
 }
 
-void sendData() {
+void readSound() {
+
+    soundSensor.read();
+    soundSensor.print();
+    readings.loudnessMean = soundSensor.getLoudnessMean();
+}
+
+boolean sendData() {
 
     // wait until delay is reached
     if ((millis() - lastSendTime) >= SEND_DELAY_MS) {
 
         lastSendTime = millis();
         transmitter.send(RECEIVER_ADDRESS, &readings);
+        return true;
     }
+    return false;
 }
 
 // start of the sketch
@@ -123,6 +134,9 @@ void loop()
     readDust();
     readWeather();
     readLight();
+    readSound();
 
-    sendData();
+    if (sendData()) {
+        soundSensor.reset();
+    }
 }

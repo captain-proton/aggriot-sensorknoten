@@ -5,11 +5,12 @@
 
 class SensorReadings {
 public:
-    uint32_t temperature_f;
-    uint32_t humidity_f;
+    uint16_t temperature_f;
+    uint16_t humidity_f;
     uint32_t dustConcentration_f;
     uint16_t lightSensorValue;
     uint16_t lightResistance;
+    uint16_t loudnessMean;
     uint8_t floatNormalizer;
     uint32_t counter;
 };
