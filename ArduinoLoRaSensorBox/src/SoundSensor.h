@@ -20,7 +20,7 @@ public:
     uint16_t getLoudness();
 private:
     uint8_t _pin;
-    uint16_t _loudness;
+    float _loudness;
     uint32_t _n;
 };
 

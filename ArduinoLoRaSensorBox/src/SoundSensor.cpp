@@ -25,7 +25,7 @@ void SoundSensor::read() {
                       n            n
      */
      _n += 1;
-    _loudness = _loudness * (_n - 1) / _n + sum / _n;
+    _loudness = (_loudness * (_n - 1) / _n) + (sum * 1.0 / _n);
 }
 
 void SoundSensor::reset() {

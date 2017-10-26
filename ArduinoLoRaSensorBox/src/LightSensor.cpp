@@ -3,7 +3,7 @@
 
 LightSensor::LightSensor(uint8_t pin) {
     _pin = pin;
-    _raw = 0;
+    _raw = 0.0;
     _rsensor = 0.0;
     reset();
 }
@@ -16,7 +16,7 @@ void LightSensor::read() {
 
     // calculate mean
     _n += 1;
-    _raw = _raw * (_n - 1) / _n + newRaw / _n;
+    _raw = _raw * (_n - 1) / _n + newRaw * 1.0 / _n;
     _rsensor = _rsensor * (_n - 1) / _n + newRSensor / _n;
 }
 
