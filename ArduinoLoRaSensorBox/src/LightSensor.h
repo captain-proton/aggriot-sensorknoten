@@ -15,12 +15,14 @@ public:
     LightSensor(uint8_t pin);
     void print();
     void read();
+    void reset();
     uint16_t getSensorData();
     uint16_t getResistance();
 private:
     uint8_t _pin;
     uint16_t _raw;
     float _rsensor;
+    uint32_t _n;
 };
 
 #endif

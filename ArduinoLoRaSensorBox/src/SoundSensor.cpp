@@ -4,12 +4,13 @@
 SoundSensor::SoundSensor(uint8_t pin) {
     _pin = pin;
     _n = 0;
+    _loudness = 0;
 }
 
 void SoundSensor::print() {
 
-    Serial.print("Loudness (mean): ");
-    Serial.println(_loudnessMean);
+    Serial.print("Loudness: ");
+    Serial.println(_loudness);
 }
 
 void SoundSensor::read() {
@@ -19,23 +20,18 @@ void SoundSensor::read() {
     }
     sum >>= 5;
     /*
-    loudness contains the first value if none was given. otherwise
-    the calculation rule is:
-
                    (n - 1)     new_value
     current mean * -------  +  ---------
                       n            n
      */
-    _loudnessMean = _n == 0
-        ? sum
-        : _loudnessMean * (_n - 1) / _n + sum / _n;
+     _n += 1;
+    _loudness = _loudness * (_n - 1) / _n + sum / _n;
 }
 
 void SoundSensor::reset() {
     _n = 0;
-    _loudnessMean = 0;
 }
 
-uint16_t SoundSensor::getLoudnessMean() {
-    return _loudnessMean;
+uint16_t SoundSensor::getLoudness() {
+    return _loudness;
 }

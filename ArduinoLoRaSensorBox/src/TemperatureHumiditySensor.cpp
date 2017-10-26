@@ -5,6 +5,7 @@
 
 TemperatureHumiditySensor::TemperatureHumiditySensor(uint8_t pin) {
     _pin = pin;
+    reset();
 }
 
 void TemperatureHumiditySensor::init() {
@@ -18,28 +19,37 @@ void TemperatureHumiditySensor::init() {
 
 boolean TemperatureHumiditySensor::read() {
     // READ DATA
-    Serial.print("DHT11, \t");
     int chk = _dht->read11(_pin);
+    float h = 0.0;
+    float t = 0.0;
     switch (chk)
     {
     case DHTLIB_OK:
-    	Serial.print("OK,\t");
         // DISPLAY DATA
-        _humidity = _dht->humidity;
-        _temperature = _dht->temperature;
+        h = _dht->humidity;
+        t = _dht->temperature;
+
+        _n += 1;
+        _humidity = _humidity * (_n - 1) / _n + h / _n;
+        _temperature = _temperature * (_n - 1) / _n + t / _n;
+        _errors = 0;
+
     	return true;
     case DHTLIB_ERROR_CHECKSUM:
-    	Serial.print("Checksum error,\t");
+    	Serial.println("DHT Checksum error");
     	break;
     case DHTLIB_ERROR_TIMEOUT:
-    	Serial.print("Time out error,\t");
+    	Serial.println("DHT Time out error");
     	break;
     default:
-    	Serial.print("Unknown error,\t");
+    	Serial.println("DHT Unknown error");
     	break;
     }
-    _temperature = -1.0;
-    _humidity = -1.0;
+    _errors += 1;
+    if (_errors > MAX_ERRORS) {
+        _humidity = -1;
+        _temperature = -1;
+    }
     return false;
 }
 
@@ -51,6 +61,11 @@ void TemperatureHumiditySensor::print() {
     Serial.print("Temperature: ");
     Serial.print(_temperature);
     Serial.println(" *C");
+}
+
+void TemperatureHumiditySensor::reset() {
+
+    _n = 0;
 }
 
 float TemperatureHumiditySensor::getHumidity() {

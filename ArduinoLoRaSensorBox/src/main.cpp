@@ -33,13 +33,13 @@ are normalized. They are marked with the suffix _f.
 #define RECEIVER_ADDRESS        2
 
 /* Time dust values are measured */
-#define DUST_MEASURING_TIME     10000
+#define DUST_MEASURING_TIME     30000
 
 /*
 Do not send data on every loop. the delay is used to calculate if data
 should be send or not.
 */
-#define SEND_DELAY_MS           10000
+#define SEND_DELAY_MS           45000
 
 /* SENSORS */
 DustCalculator dustCalculator(DUST_MEASURING_TIME, 8);
@@ -60,7 +60,6 @@ void readDust() {
 
     if (dustCalculator.calculate()) {
 
-        dustCalculator.print();
         float concentration = dustCalculator.getConcentration();
 
         readings.dustConcentration_f = (uint32_t) (concentration * readings.floatNormalizer);
@@ -71,7 +70,6 @@ void readWeather() {
 
     if (tempSensor.read()) {
 
-        tempSensor.print();
         float temperature = tempSensor.getTemperature();
         float humidity = tempSensor.getHumidity();
 
@@ -83,7 +81,6 @@ void readWeather() {
 void readLight() {
 
     lightSensor.read();
-    lightSensor.print();
     readings.lightSensorValue = lightSensor.getSensorData();
     readings.lightResistance = lightSensor.getResistance();
 }
@@ -91,8 +88,7 @@ void readLight() {
 void readSound() {
 
     soundSensor.read();
-    soundSensor.print();
-    readings.loudnessMean = soundSensor.getLoudnessMean();
+    readings.loudness = soundSensor.getLoudness();
 }
 
 boolean sendData() {
@@ -137,6 +133,9 @@ void loop()
     readSound();
 
     if (sendData()) {
+        dustCalculator.reset();
+        tempSensor.reset();
+        lightSensor.reset();
         soundSensor.reset();
     }
 }

@@ -3,13 +3,21 @@
 
 LightSensor::LightSensor(uint8_t pin) {
     _pin = pin;
+    _raw = 0;
+    _rsensor = 0.0;
+    reset();
 }
 
 void LightSensor::read() {
-    _raw = analogRead(_pin);
-    _rsensor = _raw > 0
-        ? (float) (1023 - _raw) * 10 / _raw
+    uint16_t newRaw = analogRead(_pin);
+    float newRSensor = newRaw > 0
+        ? (float) (1023 - newRaw) * 10 / newRaw
         : 0;
+
+    // calculate mean
+    _n += 1;
+    _raw = _raw * (_n - 1) / _n + newRaw / _n;
+    _rsensor = _rsensor * (_n - 1) / _n + newRSensor / _n;
 }
 
 void LightSensor::print() {
@@ -17,6 +25,11 @@ void LightSensor::print() {
     Serial.print(_raw);
     Serial.print("\tresistance: ");
     Serial.println((uint16_t)_rsensor, DEC);
+}
+
+void LightSensor::reset() {
+
+    _n = 0;
 }
 
 uint16_t LightSensor::getSensorData() {

@@ -12,12 +12,15 @@ Based on:
 #include <Arduino.h>
 #include <dht.h>
 
+#define MAX_ERRORS      5
+
 class TemperatureHumiditySensor {
 public:
     TemperatureHumiditySensor(uint8_t pin);
     void init();
     boolean read();
     void print();
+    void reset();
     float getTemperature();
     float getHumidity();
 private:
@@ -25,6 +28,8 @@ private:
     dht *_dht;
     float _humidity;
     float _temperature;
+    uint32_t _n;
+    uint8_t _errors;
 };
 
 #endif

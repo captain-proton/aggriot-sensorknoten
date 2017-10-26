@@ -85,8 +85,8 @@ void printLight(SensorReadings *readings) {
 }
 
 void printLoudness(SensorReadings * readings) {
-    uint16_t loudness = readings->loudnessMean;
-    Serial.print("Loudness (mean): ");
+    uint16_t loudness = readings->loudness;
+    Serial.print("Loudness: ");
     Serial.println(loudness);
 }
 

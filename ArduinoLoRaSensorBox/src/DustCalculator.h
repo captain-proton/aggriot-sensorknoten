@@ -21,6 +21,7 @@ public:
     float getConcentration();
     boolean calculate();
     void print();
+    void reset();
 private:
     uint32_t _duration;
     uint32_t _startTime;
@@ -29,6 +30,7 @@ private:
     uint8_t _srcPin;
     float _ratio;
     float _concentration;
+    uint32_t _n;
 };
 
 #endif

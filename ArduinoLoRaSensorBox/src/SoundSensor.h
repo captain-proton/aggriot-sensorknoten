@@ -17,10 +17,10 @@ public:
     void print();
     void read();
     void reset();
-    uint16_t getLoudnessMean();
+    uint16_t getLoudness();
 private:
     uint8_t _pin;
-    uint16_t _loudnessMean;
+    uint16_t _loudness;
     uint32_t _n;
 };
 

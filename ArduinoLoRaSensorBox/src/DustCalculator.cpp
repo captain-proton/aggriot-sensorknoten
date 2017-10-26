@@ -4,10 +4,8 @@
 DustCalculator::DustCalculator(uint32_t sampletimeMs, uint8_t srcPin) {
     _srcPin = srcPin;
     _sampleTimeMs = sampletimeMs;
-    _duration = 0;
-    _startTime = millis();
-    _lowPulseOccupancy = 0;
-    _ratio = 0.0;
+    _concentration = 0;
+    reset();
 }
 
 void DustCalculator::init() {
@@ -34,7 +32,11 @@ boolean DustCalculator::calculate() {
         _ratio = _lowPulseOccupancy / (_sampleTimeMs * 10.0);
 
         // using spec sheet curve
-        _concentration = 1.1 * pow(_ratio, 3) - 3.8 * pow(_ratio, 2) + 520 * _ratio + 0.62;
+        float c = 1.1 * pow(_ratio, 3) - 3.8 * pow(_ratio, 2) + 520 * _ratio + 0.62;
+
+        // calculate mean
+        _n += 1;
+        _concentration = _concentration * (_n - 1) / _n + c / _n;
 
         // reset values to start sampling again
         _lowPulseOccupancy = 0;
@@ -49,4 +51,13 @@ void DustCalculator::print() {
     Serial.print("concentration = ");
     Serial.print(_concentration);
     Serial.println(" pcs/0.01cf");
+}
+
+void DustCalculator::reset() {
+
+    _duration = 0;
+    _startTime = millis();
+    _lowPulseOccupancy = 0;
+    _ratio = 0.0;
+    _n = 0;
 }
