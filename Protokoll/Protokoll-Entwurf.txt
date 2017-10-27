@@ -7,8 +7,8 @@ Nachrichtenaufbau:
 	- IsAck 1 Bit   	(Bit 5, ACK=1, Request=0)
 	- Up/Downstream 1 Bit	(Bit 4, Sensor->Aggr=0, Aggr->Sensor=1)
 	- Reserved 4 Bit	(Bits 0-3, alle 0)
-- Payload-Länge 1 Byte
-- Sensor-Adresse (je nach Up/Downstream) 4 Byte [wollen wir dafür 32 Bit opfern?]
+- Payload-LÃ¤nge 1 Byte
+- Sensor-Adresse (je nach Up/Downstream) 4 Byte [wollen wir dafÃ¼r 32 Bit opfern?]
 - Sequenznummer 4 Byte [Eine Nachricht pro Sekunde => 136 Jahre bei einer Nachricht pro Sekunde
 - Encrypted {
 	Payload, min 4 Byte {
@@ -19,25 +19,25 @@ Nachrichtenaufbau:
 }
 - CRC16 1 Byte
 
-One-Time-Pad für Payload-Verschlüsselung pro 16-Byte-Datenblock der Nachricht:
-Upstream: aes128(psk, sensoradresse (4 byte) | sequenznummer (6 byte) | block-nr + 128 (1 byte) )
-downstream: aes128(psk, sensoradresse (4 byte) | sequenznummer (6 byte) | block-nr (1 byte) )
+One-Time-Pad fÃ¼r Payload-VerschlÃ¼sselung pro 16-Byte-Datenblock der Nachricht:
+Upstream: aes128(psk, sensoradresse (4 byte) | sequenznummer (6 byte) | block-nr + 128 (1 byte) ) == SzuA
+downstream: aes128(psk, sensoradresse (4 byte) | sequenznummer (6 byte) | block-nr (1 byte) ) == AzuS
 
 -> Jede Seite speichert nur die letzte benutzte Sequenznummer. Wenn eine Seite eine zu kleine Sequenznummer
-verwendet, die aber gültig ist (Signatur okay, NUR Sequenznummer zu niedrig) antwortet er mit Payload-Typ 255
+verwendet, die aber gÃ¼ltig ist (Signatur okay, NUR Sequenznummer zu niedrig) antwortet er mit Payload-Typ 255
 und benutzt _seine_ aktuelle Sequenznummer. Die Gegenseite updated dann ihre eigene Sequenznummer auf den
 erforderlichen Stand und die Kommunikation wird erneut probiert.
 
 [-> Wenn die empfangene Sequenznummer zu weit vorne ist, wird die eigene Sequenznummer dahin vorgezogen.]
 
 Wenn keine Daten (oder zu wenige Daten) verschickt werden, wird am Ende mit 0-Bytes auf 6 Byte gepadded. Auf
-jeden Fall wird in Payload-Länge die reelle Länge der Daten angegeben. Das dient dazu, dass die integrität der
-Daten überprüft werden kann (wir brauchen zuminest ein paar Byte dafür).
+jeden Fall wird in Payload-LÃ¤nge die reelle LÃ¤nge der Daten angegeben. Das dient dazu, dass die integritÃ¤t der
+Daten Ã¼berprÃ¼ft werden kann (wir brauchen zuminest ein paar Byte dafÃ¼r).
 
 Problem:
-- Wir können jedes Paket mit 2^32 Sendeversuchen gültig bekommen. Die Daten sind dann halt ziemlich unsinnig. Um
-das sicherer zu machen müsste man die Payload-CRC vergrößern. Jedes Paket hat eine Mindestlänge von 23 Byte.
+- Wir kÃ¶nnen jedes Paket mit 2^32 Sendeversuchen gÃ¼ltig bekommen. Die Daten sind dann halt ziemlich unsinnig. Um
+das sicherer zu machen mÃ¼sste man die Payload-CRC vergrÃ¶ÃŸern. Jedes Paket hat eine MindestlÃ¤nge von 23 Byte.
 Bei 50 kBit/sec schaffen wir 271 Paket pro Sekunde (maximal, da der Zigbee-Header etc noch dazu kommt).
 Wir brauchen 2^31 Versuche zum imitieren eines Pakets. Das dauert 91 Tage. Im besten Fall ist allerdings die
 Sequenznummer dann durch neue Nachrichten (mindestens eine Nachricht pro Tag?) eh durch..
-Damit hätten wir allerdings noch keinen zu einem ACK passenden gültigen Content.
+Damit hÃ¤tten wir allerdings noch keinen zu einem ACK passenden gÃ¼ltigen Content.
