@@ -1,27 +1,27 @@
 Nachrichtencodierung Little Endian. (Bei x86/64 und ARM sollte das am einfachsten sein).
 
 Nachrichtenaufbau:
-- Startbyte 1 Byte
+- StartByte 1 Byte
 - Flag 1 Byte
-	- Version 2 Bit 	(Bit 6, 7=0b00)
-	- IsAck 1 Bit   	(Bit 5, ACK=1, Request=0)
+	- Version 2 Bit		(Bits 6/7 = 0b00)
+	- IsAck 1 Bit		(Bit 5, ACK=1, Request=0)
 	- Up/Downstream 1 Bit	(Bit 4, Sensor->Aggr=0, Aggr->Sensor=1)
 	- Reserved 4 Bit	(Bits 0-3, alle 0)
 - Payload-Länge 1 Byte
 - Sensor-Adresse (je nach Up/Downstream) 4 Byte [wollen wir dafür 32 Bit opfern?]
-- Sequenznummer 4 Byte [Eine Nachricht pro Sekunde => 136 Jahre bei einer Nachricht pro Sekunde
+- Sequenznummer 4 Byte [136 Jahre bei einer Nachricht pro Sekunde]
 - Encrypted {
 	Payload, min 4 Byte {
-	 - Payload-Typ		8 Bit
-	 - Payload		n Byte, n > 2
+	 - Payload-Typ		1 Byte
+	 - Payload		n ≥ 3 Byte
 	}
- - Payload-CRC 		32 Bit
+ - Payload-CRC			32 Bit
 }
 - CRC16 1 Byte
 
 One-Time-Pad für Payload-Verschlüsselung pro 16-Byte-Datenblock der Nachricht:
-Upstream: aes128(psk, sensoradresse (4 byte) | sequenznummer (6 byte) | block-nr + 128 (1 byte) ) == SzuA
-downstream: aes128(psk, sensoradresse (4 byte) | sequenznummer (6 byte) | block-nr (1 byte) ) == AzuS
+Upstream (S zu A):   aes128(psk, Sensoradresse (4 Byte) | Sequenznummer (4 Byte) | Block-NR + 128 (1 Byte) )
+Downstream (A zu S): aes128(psk, Sensoradresse (4 Byte) | Sequenznummer (4 Byte) | Block-NR (1 Byte) )
 
 -> Jede Seite speichert nur die letzte benutzte Sequenznummer. Wenn eine Seite eine zu kleine Sequenznummer
 verwendet, die aber gültig ist (Signatur okay, NUR Sequenznummer zu niedrig) antwortet er mit Payload-Typ 255
@@ -30,9 +30,10 @@ erforderlichen Stand und die Kommunikation wird erneut probiert.
 
 [-> Wenn die empfangene Sequenznummer zu weit vorne ist, wird die eigene Sequenznummer dahin vorgezogen.]
 
-Wenn keine Daten (oder zu wenige Daten) verschickt werden, wird am Ende mit 0-Bytes auf 6 Byte gepadded. Auf
-jeden Fall wird in Payload-Länge die reelle Länge der Daten angegeben. Das dient dazu, dass die integrität der
-Daten überprüft werden kann (wir brauchen zuminest ein paar Byte dafür).
+Wenn keine Daten (oder zu wenige Daten) verschickt werden, wird am Ende mit 0-Bytes auf 4 Byte gepadded. Auf
+jeden Fall wird in Payload-Länge die tatsächliche Länge der Daten [ohne Padding] angegeben. Das dient dazu,
+dass die integrität der Daten überprüft werden kann (wir brauchen zuminest ein paar Byte dafür).
+Dies dient ebenfalls als Signatur der ACKs.
 
 Problem:
 - Wir können jedes Paket mit 2^32 Sendeversuchen gültig bekommen. Die Daten sind dann halt ziemlich unsinnig. Um
