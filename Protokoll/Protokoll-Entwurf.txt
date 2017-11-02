@@ -19,6 +19,18 @@ Nachrichtenaufbau:
 }
 - CRC16 1 Byte
 
+-----
+
+- Payload {
+    - Temperatur        2 Byte (normalisiert [0-5000])
+    - Luftfeuchtigkeit  2 Byte (normalisiert [0-10000])
+    - Staub             4 Byte (normalisiert [0-3000000])
+    - Licht             2 Byte ([0-800])
+    - Lichtwiderstand   2 Byte
+    - Lautstärke        2 Byte ([20-400])
+    - Normalisierer     1 Byte ([100])
+}
+
 One-Time-Pad für Payload-Verschlüsselung pro 16-Byte-Datenblock der Nachricht:
 Upstream (S zu A):   aes128(psk, Sensoradresse (4 Byte) | Sequenznummer (4 Byte) | Block-NR + 128 (1 Byte) )
 Downstream (A zu S): aes128(psk, Sensoradresse (4 Byte) | Sequenznummer (4 Byte) | Block-NR (1 Byte) )
