@@ -13,11 +13,11 @@ Nachrichtenaufbau:
 - Encrypted {
 	Payload, min 4 Byte {
 	 - Payload-Typ		1 Byte
-	 - Payload		n ≥ 3 Byte
+	 - Payload-Data		n ≥ 3 Byte
 	}
- - Payload-CRC			32 Bit
+ - Payload-CRC			32 Bit (Payload-Typ und Payload-Data)
 }
-- CRC16 1 Byte
+- CRC16 2 Byte (Startbyte bis Payload-CRC inklusive)
 
 One-Time-Pad für Payload-Verschlüsselung pro 16-Byte-Datenblock der Nachricht:
 Upstream (S zu A):   aes128(psk, Sensoradresse (4 Byte) | Sequenznummer (4 Byte) | Block-NR + 128 (1 Byte) )
