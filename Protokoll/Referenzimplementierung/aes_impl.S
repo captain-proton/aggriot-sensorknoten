@@ -1,6 +1,5 @@
 ; Copyright (C) 2003,2006 B. Poettering
-
-; C-Conversion routines & GCC-adaptation by T.Hagemeier, (C) 2017.
+; C-Conversion routines & GCC-adaptation by T.Hagemeier, 2017.
 
 ; This program is free software; you can redistribute and/or modify
 ; it under the terms of the GNU General Public License as published by
