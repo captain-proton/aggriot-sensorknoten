@@ -9,15 +9,11 @@ TemperatureHumiditySensor::TemperatureHumiditySensor(uint8_t pin) {
 }
 
 void TemperatureHumiditySensor::init() {
-    Serial.print("LIBRARY VERSION: ");
-    Serial.println(DHT_LIB_VERSION);
-    Serial.println();
-    Serial.println("Type,\tstatus,\tHumidity (%),\tTemperature (C)");
     dht DHT;
     _dht = &DHT;
 }
 
-boolean TemperatureHumiditySensor::read() {
+boolean TemperatureHumiditySensor::loop() {
     // READ DATA
     int chk = _dht->read11(_pin);
     float h = 0.0;

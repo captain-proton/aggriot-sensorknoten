@@ -12,14 +12,15 @@ Based on:
 #define DustCalculator_H
 
 #include <Arduino.h>
+#include <RunningMedian.h>
 
 class DustCalculator {
 
 public:
-    DustCalculator(uint32_t sampletimeMs, uint8_t srcPin);
+    DustCalculator(uint32_t sampletimeMs, uint8_t srcPin, uint8_t capacity);
     void init();
     float getConcentration();
-    boolean calculate();
+    boolean loop();
     void print();
     void reset();
 private:
@@ -30,7 +31,8 @@ private:
     uint8_t _srcPin;
     float _ratio;
     float _concentration;
-    uint32_t _n;
+    RunningMedian *_median;
+    uint8_t _capacity;
 };
 
 #endif

@@ -15,7 +15,7 @@ class SoundSensor {
 public:
     SoundSensor(uint8_t pin);
     void print();
-    void read();
+    void loop();
     void reset();
     uint16_t getLoudness();
 private:

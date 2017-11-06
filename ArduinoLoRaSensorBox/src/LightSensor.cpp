@@ -8,7 +8,7 @@ LightSensor::LightSensor(uint8_t pin) {
     reset();
 }
 
-void LightSensor::read() {
+void LightSensor::loop() {
     uint16_t newRaw = analogRead(_pin);
     float newRSensor = newRaw > 0
         ? (float) (1023 - newRaw) * 10 / newRaw

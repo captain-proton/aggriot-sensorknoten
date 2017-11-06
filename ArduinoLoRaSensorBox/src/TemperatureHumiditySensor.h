@@ -18,7 +18,7 @@ class TemperatureHumiditySensor {
 public:
     TemperatureHumiditySensor(uint8_t pin);
     void init();
-    boolean read();
+    boolean loop();
     void print();
     void reset();
     float getTemperature();

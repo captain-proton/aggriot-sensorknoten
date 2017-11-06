@@ -14,7 +14,7 @@ class LightSensor {
 public:
     LightSensor(uint8_t pin);
     void print();
-    void read();
+    void loop();
     void reset();
     uint16_t getSensorData();
     uint16_t getResistance();
