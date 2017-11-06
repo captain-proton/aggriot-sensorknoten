@@ -36,18 +36,20 @@ are normalized. They are marked with the suffix _f.
 #define TRANSMITTER_ADDRESS     1
 #define RECEIVER_ADDRESS        2
 
-/* Time dust values are measured */
-#define DUST_MEASURING_TIME     30000L
-
 /*
 Do not send data on every loop. the delay is used to calculate if data
 should be send or not.
 */
 #define SEND_DELAY_MS           120000L
 
-#define DEFAULT_SENSOR_INTERVAL 5000
+#define DEFAULT_SENSOR_INTERVAL 1000
 
-#define DUST_MEDIAN_COUNT       SEND_DELAY_MS / DUST_MEASURING_TIME
+/* Time dust values are measured */
+#define DUST_MEASURING_TIME     30000L
+#define DUST_MIN_MEDIAN_COUNT   5
+#define DUST_MEDIAN_CAPACITY    10
+
+#define FLOAT_NORMALIZER        100
 
 Scheduler scheduler;
 
@@ -75,7 +77,7 @@ Task that is going to send data in an interval.
 Task tSendData(SEND_DELAY_MS, TASK_FOREVER, &sendData);
 
 /* SENSORS */
-DustCalculator dustCalculator(DUST_MEASURING_TIME, 8, DUST_MEDIAN_COUNT);
+DustCalculator dustCalculator(DUST_MEASURING_TIME, 8, DUST_MIN_MEDIAN_COUNT, DUST_MEDIAN_CAPACITY);
 TemperatureHumiditySensor tempSensor(A0);
 LightSensor lightSensor(A1);
 SoundSensor soundSensor(A2);
@@ -109,32 +111,38 @@ void readSound() {
 }
 
 void reset() {
-    dustCalculator.reset();
+    if (dustCalculator.isCalculated()) {
+        dustCalculator.reset();
+    }
     tempSensor.reset();
     lightSensor.reset();
     soundSensor.reset();
+
+    readings.reset();
 }
 
 void sendData() {
 
     Serial.print(millis());
     Serial.println(" - sendData() ");
+    readings.floatNormalizer = FLOAT_NORMALIZER;
 
-    tempSensor.print();
     readings.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.floatNormalizer);
     readings.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.floatNormalizer);
 
-    dustCalculator.print();
-    readings.dustConcentration_f = (uint32_t) (dustCalculator.getConcentration() * readings.floatNormalizer);
+    readings.dustConcentration_f = dustCalculator.isCalculated()
+            ? (uint32_t) (dustCalculator.getConcentration() * readings.floatNormalizer)
+            : 0;
 
-    lightSensor.print();
     readings.lightSensorValue = lightSensor.getSensorData();
     readings.lightResistance = lightSensor.getResistance();
 
-    soundSensor.print();
     readings.loudness = soundSensor.getLoudness();
+    readings.print();
 
-    transmitter.send(RECEIVER_ADDRESS, &readings);
+    uint8_t data[readings.size()];
+    readings.serialize(data);
+    transmitter.send(RECEIVER_ADDRESS, data);
     reset();
 }
 
@@ -151,9 +159,6 @@ void setup()
         Serial.println(F("Init failed"));
 
     dustCalculator.init();
-
-    readings.floatNormalizer = 100;
-    readings.counter = 0;
 
     scheduler.init();
     Serial.println(F("Initialized scheduler"));

@@ -13,14 +13,12 @@ Based on:
 #include <RH_RF95.h>
 #include <RHReliableDatagram.h>
 
-#include "SensorReadings.h"
-
 class LoRaTransmitter {
 
 public:
     LoRaTransmitter(uint8_t address);
     boolean init();
-    void send(uint16_t receiver, SensorReadings *readings);
+    void send(uint16_t receiver, uint8_t *data);
 private:
     uint8_t _address;
     uint8_t _led;

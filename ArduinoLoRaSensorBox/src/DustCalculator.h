@@ -17,10 +17,11 @@ Based on:
 class DustCalculator {
 
 public:
-    DustCalculator(uint32_t sampletimeMs, uint8_t srcPin, uint8_t capacity);
+    DustCalculator(uint32_t sampletimeMs, uint8_t srcPin, uint8_t minCount, uint8_t capacity);
     void init();
     float getConcentration();
     boolean loop();
+    boolean isCalculated();
     void print();
     void reset();
 private:
@@ -32,6 +33,7 @@ private:
     float _ratio;
     float _concentration;
     RunningMedian *_median;
+    uint8_t _minCount;
     uint8_t _capacity;
 };
 

@@ -1,9 +1,10 @@
 #include "DustCalculator.h"
 
-DustCalculator::DustCalculator(uint32_t sampletimeMs, uint8_t srcPin, uint8_t capacity) {
+DustCalculator::DustCalculator(uint32_t sampletimeMs, uint8_t srcPin, uint8_t minCount, uint8_t capacity) {
     _srcPin = srcPin;
     _sampleTimeMs = sampletimeMs;
     _concentration = 0;
+    _minCount = minCount;
     _capacity = capacity;
 }
 
@@ -46,6 +47,12 @@ boolean DustCalculator::loop() {
         return true;
     }
     return false;
+}
+
+boolean DustCalculator::isCalculated() {
+    uint8_t count = _median->getCount();
+    return count >= _minCount
+        || count >= _capacity;
 }
 
 void DustCalculator::print() {

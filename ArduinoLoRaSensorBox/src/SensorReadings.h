@@ -12,7 +12,11 @@ public:
     uint16_t lightResistance;
     uint16_t loudness;
     uint8_t floatNormalizer;
-    uint32_t counter;
+
+    void serialize(uint8_t* dst);
+    uint16_t size();
+    void reset();
+    void print();
 };
 
 #endif
