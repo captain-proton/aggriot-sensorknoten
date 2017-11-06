@@ -120,18 +120,18 @@ void sendData() {
     Serial.print(millis());
     Serial.println(" - sendData() ");
 
-    // tempSensor.print();
+    tempSensor.print();
     readings.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.floatNormalizer);
     readings.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.floatNormalizer);
 
-    // dustCalculator.print();
+    dustCalculator.print();
     readings.dustConcentration_f = (uint32_t) (dustCalculator.getConcentration() * readings.floatNormalizer);
 
-    // lightSensor.print();
+    lightSensor.print();
     readings.lightSensorValue = lightSensor.getSensorData();
     readings.lightResistance = lightSensor.getResistance();
 
-    // soundSensor.print();
+    soundSensor.print();
     readings.loudness = soundSensor.getLoudness();
 
     transmitter.send(RECEIVER_ADDRESS, &readings);
@@ -148,7 +148,7 @@ void setup()
     Serial.begin(9600);
 
     if (!transmitter.init())
-        Serial.println("Init failed");
+        Serial.println(F("Init failed"));
 
     dustCalculator.init();
 
@@ -156,7 +156,7 @@ void setup()
     readings.counter = 0;
 
     scheduler.init();
-    Serial.println("Initialized scheduler");
+    Serial.println(F("Initialized scheduler"));
 
     scheduler.addTask(taskWrapper);
     taskWrapper.enable();
@@ -164,19 +164,19 @@ void setup()
     scheduler.addTask(tWeather);
     tempSensor.init();
     tWeather.enable();
-    Serial.println("Enabled weather sensor");
+    Serial.println(F("Enabled weather sensor"));
 
     scheduler.addTask(tSound);
     tSound.enable();
-    Serial.println("Enabled sound sensor");
+    Serial.println(F("Enabled sound sensor"));
 
     scheduler.addTask(tLight);
     tLight.enable();
-    Serial.println("Enabled light sensor");
+    Serial.println(F("Enabled light sensor"));
 
     scheduler.addTask(tSendData);
     tSendData.enableDelayed(SEND_DELAY_MS);
-    Serial.println("Enabled data send");
+    Serial.println(F("Enabled data send"));
 }
 
 // called after setup(). loops consecutively. there is not guarantee that

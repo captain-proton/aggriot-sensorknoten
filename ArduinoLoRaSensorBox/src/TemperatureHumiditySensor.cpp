@@ -32,13 +32,13 @@ boolean TemperatureHumiditySensor::loop() {
 
     	return true;
     case DHTLIB_ERROR_CHECKSUM:
-    	Serial.println("DHT Checksum error");
+    	Serial.println(F("DHT Checksum error"));
     	break;
     case DHTLIB_ERROR_TIMEOUT:
-    	Serial.println("DHT Time out error");
+    	Serial.println(F("DHT Time out error"));
     	break;
     default:
-    	Serial.println("DHT Unknown error");
+    	Serial.println(F("DHT Unknown error"));
     	break;
     }
     _errors += 1;

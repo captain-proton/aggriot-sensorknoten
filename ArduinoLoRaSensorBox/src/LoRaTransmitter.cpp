@@ -48,10 +48,10 @@ void LoRaTransmitter::send(uint16_t receiver, SensorReadings *readings) {
 
     digitalWrite(_led, HIGH);
     if (_manager->sendtoWait(buf, dataFrameSize, receiver)) {
-        Serial.println("Message sent");
+        Serial.println(F("Message sent"));
         readings->counter = readings->counter + 1;
     } else {
-        Serial.println("sendtoWait failed");
+        Serial.println(F("sendtoWait failed"));
     }
     digitalWrite(_led, LOW);
 }
