@@ -6,14 +6,16 @@
  */ 
 
 #include "ringBuffer.h"
+#ifndef NO_AVR
 #include <avr/interrupt.h>
+#endif
 
 // Größe ca: 344 Bytes
 
-RB_BUFFER_t * rb_createBuffer(void * data, unsigned int buflen) {
+RB_BUFFER_t * rb_createBuffer(void * data, uint16_t buflen) {
 	RB_BUFFER_t * buf = (RB_BUFFER_t*)data;
 	if (buflen > (sizeof(RB_BUFFER_t) + 2)) {
-		buf->buffer = ((unsigned char *)data) + sizeof(RB_BUFFER_t);
+		buf->buffer = ((uint8_t *)data) + sizeof(RB_BUFFER_t);
 		buf->readPosition = 0;
 		buf->writePosition = 0;
 		buf->size = 0;
@@ -24,7 +26,7 @@ RB_BUFFER_t * rb_createBuffer(void * data, unsigned int buflen) {
 	}
 }
 
-unsigned char rb_peek(RB_BUFFER_t * buf, unsigned char position) {
+uint8_t rb_peek(RB_BUFFER_t * buf, uint8_t position) {
 	if (position < buf->size) {
 		position += buf->readPosition;
 		if (!(position < buf->maxSize))
@@ -34,7 +36,7 @@ unsigned char rb_peek(RB_BUFFER_t * buf, unsigned char position) {
 	return 0;
 }
 
-void rb_delete(RB_BUFFER_t * buf, unsigned char howMany) {
+void rb_delete(RB_BUFFER_t * buf, uint8_t howMany) {
 	if (howMany && (howMany < buf->size)) {
 		buf->readPosition += howMany;
 		buf->size -= howMany;
@@ -47,7 +49,7 @@ void rb_delete(RB_BUFFER_t * buf, unsigned char howMany) {
 	}
 }
 
-unsigned char rb_put(RB_BUFFER_t * buf, unsigned char whatChar) {
+uint8_t rb_put(RB_BUFFER_t * buf, uint8_t whatChar) {
 	if (buf->size < buf->maxSize) {
 		buf->buffer[buf->writePosition++] = whatChar;
 		buf->size++;
@@ -60,34 +62,43 @@ unsigned char rb_put(RB_BUFFER_t * buf, unsigned char whatChar) {
 	}
 }
 
-unsigned char rb_get(RB_BUFFER_t * buf) {
-	unsigned char data = rb_peek(buf, 0);
+uint8_t rb_get(RB_BUFFER_t * buf) {
+	uint8_t data = rb_peek(buf, 0);
 	rb_delete(buf, 1);
 	return data;
 }
 
-unsigned char rb_getCount(RB_BUFFER_t * buf) {
+uint8_t rb_getCount(RB_BUFFER_t * buf) {
 	return buf->size;
 }
 
-unsigned char rb_peek_sync(RB_BUFFER_t * buf, unsigned char position) {
-	unsigned char data;
-	unsigned char stmp = SREG;
+uint8_t rb_peek_sync(RB_BUFFER_t * buf, uint8_t position) {
+	uint8_t data;
+#ifndef NO_AVR
+	uint8_t stmp = SREG;
+	cli();
+#endif
 	if (position < buf->size) {
 		position += buf->readPosition;
 		if (!(position < buf->maxSize))
 			position -= buf->maxSize;
 		data = buf->buffer[position];
+#ifndef NO_AVR
 		SREG = stmp;
+#endif
 		return data;
 	}
+#ifndef NO_AVR
 	SREG = stmp;
+#endif
 	return 0;
 }
 
-void rb_delete_sync(RB_BUFFER_t * buf, unsigned char howMany) {
-	unsigned char stmp = SREG;
+void rb_delete_sync(RB_BUFFER_t * buf, uint8_t howMany) {
+#ifndef NO_AVR
+	uint8_t stmp = SREG;
 	cli(); // Unkritisch
+#endif
 	if (howMany && (howMany < buf->size)) {
 		buf->readPosition += howMany;
 		buf->size -= howMany;
@@ -98,36 +109,48 @@ void rb_delete_sync(RB_BUFFER_t * buf, unsigned char howMany) {
 		buf->writePosition = 0;
 		buf->size = 0;
 	}
+#ifndef NO_AVR
 	SREG = stmp;
+#endif
 }
 
-unsigned char rb_put_sync(RB_BUFFER_t * buf, unsigned char whatChar) {
-	unsigned char stmp = SREG;
+uint8_t rb_put_sync(RB_BUFFER_t * buf, uint8_t whatChar) {
+#ifndef NO_AVR
+	uint8_t stmp = SREG;
 	cli(); // Unkritisch
+#endif
 	if (buf->size < buf->maxSize) {
 		buf->buffer[buf->writePosition++] = whatChar;
 		buf->size++;
 		if (!(buf->writePosition < buf->maxSize))
 			buf->writePosition = 0; // Das geht nur, da wir jedes Mal höchstens ein Byte hinzufügen
+#ifndef NO_AVR
 		SREG = stmp;
+#endif
 		return 1;
 	} else {
+#ifndef NO_AVR
 		SREG = stmp;
+#endif
 		return 0;
 	}
 }
 
-unsigned char rb_get_sync(RB_BUFFER_t * buf) {
-	unsigned char data = rb_peek_sync(buf, 0);
+uint8_t rb_get_sync(RB_BUFFER_t * buf) {
+	uint8_t data = rb_peek_sync(buf, 0);
 	rb_delete_sync(buf, 1);
 	return data;
 }
 
-unsigned char rb_getCount_sync(RB_BUFFER_t * buf) {
-	unsigned char count;
-	unsigned char stmp = SREG;
+uint8_t rb_getCount_sync(RB_BUFFER_t * buf) {
+	uint8_t count;
+#ifndef NO_AVR
+	uint8_t stmp = SREG;
 	cli(); // Unkritisch
+#endif
 	count = buf->size;
+#ifndef NO_AVR
 	SREG = stmp;
+#endif
 	return count;
 }

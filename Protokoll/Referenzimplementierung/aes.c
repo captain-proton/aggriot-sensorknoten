@@ -8,109 +8,92 @@
 
 // These functions are provided by the assembler file. They should not be accessed from anywhere else but here:
 
-void aes_encrypt(unsigned char* text16, unsigned char* expandedkey176);
+void aes_encrypt(uint8_t* text16, uint8_t* expandedkey176);
 #ifdef NEED_DECRYPTION_FEATURE
-void aes_decrypt(unsigned char* text16, unsigned char* expandedkey176);
+void aes_decrypt(uint8_t* text16, uint8_t* expandedkey176);
 #endif
-void aes_expand_key(unsigned char* key, unsigned char* expandedkeybuf176);
-void aes_patch_key(unsigned char* key);
+void aes_expand_key(uint8_t* key, uint8_t* expandedkeybuf176);
+void aes_patch_key(uint8_t* key);
 
-unsigned char expandedEncryptionKey[EXPANDED_KEY_SIZE];
+uint8_t expandedEncryptionKey[EXPANDED_KEY_SIZE];
 #ifdef NEED_DECRYPTION_FEATURE
-unsigned char expandedDecryptionKey[EXPANDED_KEY_SIZE];
+uint8_t expandedDecryptionKey[EXPANDED_KEY_SIZE];
 #endif
-unsigned char AESkeyBuffer[KEY_SIZE] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
-unsigned char AEStextBuffer[BLOCK_SIZE];
-unsigned char aesStatus = (1 << AES_NEED_KEY_UPDATE);
-unsigned char nextTextByte = 0;
 
-void AESCryptGenerateKey(const unsigned char* thiskey, unsigned char len) {
+void aes_setKey(const uint8_t* thiskey, uint8_t len) {
 	// The key that is passed to this function is buffered in the AESkeyBuffer
 	// so if the same key is passed again the expanded keys don't have to be
 	// regenerated.
-	unsigned char keyBufIndex = 0;
+	if (len != BLOCK_SIZE)
+		return;
+#ifdef _AVR_IO_H_
+	aes_expand_key(thiskey, &expandedEncryptionKey[0]);
+#else
+#warning NOT ON AVR: AES not included!
+#endif
+}
+
+void aes_init(const uint8_t * key, uint8_t len) {
+	aes_setKey(key, len);
+}
+
+// Verschlüsselungs-Kram:
+typedef union {
+	struct {
+		uint32_t sensorAddress;
+		uint32_t sequenceNumber;
+		uint8_t blockNumber;
+	};
+	uint8_t byteblock[BLOCK_SIZE];
+} EncryptionBlock;
+
+void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorAddress, uint32_t sequenceNumber, uint8_t incoming) {
+	uint8_t blockNumber = incoming ? 0 : 128;
+	uint8_t bufferPosition = 0;
 	
-	if (len != KEY_SIZE) {
-		aesStatus |= (1 << AES_NEED_KEY_UPDATE);
-	}
+	printf("En/Decrypting len=%d with incoming=%d, sensAddr=0x%x, seqNum=%d.\n", payloadLength, incoming, sensorAddress, sequenceNumber);
 	
-	// Copy provided key to internal buffer
-	while (len--) {
-		if (AESkeyBuffer[keyBufIndex] != *thiskey) {
-			AESkeyBuffer[keyBufIndex] = *thiskey;
-			aesStatus |= (1 << AES_NEED_KEY_UPDATE);
-		}
-		keyBufIndex++;
-		thiskey++;
-		if (keyBufIndex == KEY_SIZE) {
-			break;
-		}
-	}
+	uint8_t i;
+	printf("Before crypt: ");
+	for(i=0;i<payloadLength;i++)
+		printf("%.2x ", payload[i]);
+	printf("\n");
+	i = payloadLength;
 	
-	// If the key needs an update (has been changed or generated for the first time)
-	// we need to update the extended encryption/decryption key which is done here:
-	if (aesStatus & (1 << AES_NEED_KEY_UPDATE)) {
-		// Expand the key to the encryption key:
-		aes_expand_key(&AESkeyBuffer[0], &expandedEncryptionKey[0]);
+	do {
+		// OTP-Block erzeugen:
+		EncryptionBlock block;
+		// Zero memory:
+		uint8_t len = BLOCK_SIZE;
+		while (len--)
+#ifndef _AVR_IO_H_
+			block.byteblock[len] = len+(BLOCK_SIZE*blockNumber);
+#else
+			block.byteblock[len] = 0;
+#endif
 		
-#ifdef NEED_DECRYPTION_FEATURE
-		// Copy the result to the decryption key:
-		keyBufIndex = EXPANDED_KEY_SIZE;
-		while (keyBufIndex--) {
-			expandedDecryptionKey[keyBufIndex] = expandedEncryptionKey[keyBufIndex];
-		}
-		// Run patch on decryption key:
-		aes_patch_key(&expandedDecryptionKey[0]);
+#warning TODO: Eventuell Big Endian einfügen? Je nachdem wie die andere Seite es implementiert
+#ifdef _AVR_IO_H_
+		// Ursprungsdaten einfüllen
+		block.sensorAddress = sensorAddress;
+		block.sequenceNumber = sequenceNumber;
+		block.blockNumber = blockNumber;
+		
+		// Verschlüsseln:
+		aes_encrypt(&block, &expandedEncryptionKey[0]);
 #endif
-		// We have just updated the key - no update needed:
-		aesStatus &= ~(1 << AES_NEED_KEY_UPDATE);
-	}
+		
+		do {
+			if (!payloadLength--) {
+				payloadLength = i;
+				printf("After crypt: ");
+				for(i=0;i<payloadLength;i++)
+					printf("%.2x ", payload[i]);
+				printf("\n");
+				return;
+			}
+			payload[bufferPosition] ^= block.byteblock[bufferPosition & (BLOCK_SIZE-1)];
+		} while ((++bufferPosition & (BLOCK_SIZE-1)));
+	} while (++blockNumber);
 }
 
-// Initialize the buffer to basic state:
-void aes_init(void) {
-	// Clear the message buffer:
-	unsigned char i = BLOCK_SIZE;
-	while (i--) {
-		AEStextBuffer[i] = 0;
-	}
-	nextTextByte = 0; // Wraps around at next increment
-	aesStatus &= ~(1 << AES_NEED_ENCRYPTION); // Stop that..
-}
-
-void AESCryptFeedData(const unsigned char* data, unsigned char len, unsigned char finaldata) {
-	// Data XORed with the buffer. When the buffer is full, it is encrypted.
-	// The first 16 bytes will be put into the buffer 1:1 but from the 17th byte
-	// on the data is first XORed with the result of the previous encryption run
-	while (len--) {
-		AESCryptFeedOneByte(*data++);
-	}
-	if (finaldata) {
-		AESCryptCalculateNow();
-	}
-}
-
-void AESCryptFeedOneByte(const unsigned char data) {
-	if (!nextTextByte) {
-		// This function will only actually do anything if the buffer has been changed after the last crypting
-		AESCryptCalculateNow();
-	}
-	AEStextBuffer[nextTextByte] ^= data;
-	nextTextByte = (nextTextByte + 1) % BLOCK_SIZE;
-	// Data of the buffer has been changed so we need to encrypt it next time we add a byte/call AESCryptCalculateNow
-	aesStatus |= (1 << AES_NEED_ENCRYPTION);
-}
-
-void AESCryptCalculateNow(void) {
-	// If the AES_NEED_ENCRYPTION-Flag is set: Encrypt the buffer. Otherwise the buffer has been cleared/encrypted
-	// already and not changed in between.
-	if (aesStatus & (1 << AES_NEED_ENCRYPTION)) {
-		// Encrypt the buffer:
-		aes_encrypt(&AEStextBuffer[0], &expandedEncryptionKey[0]);
-		// Clear NEED_ENCRYPTION-Flag since thats what we have just done.
-		aesStatus &= ~(1 << AES_NEED_ENCRYPTION);
-	}
-}
-
-
-#endif

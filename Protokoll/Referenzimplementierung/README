@@ -1,0 +1,34 @@
+Diese Bibliothek zeigt, wie das Sensor-Protokoll auf AVR verwendet wird.
+
+Zum Testen auf x86 (etc) die Datei communication_test_on_x86.c kompilieren.
+
+Zum Einbinden in AVR die c-Dateien dem Makefile hinzufügen. Zusätzlich müssen im eigenen Quelltext
+einge Funktionen implementiert werden (I/O sowohl von Byteströmen als auch von Datenpaketen).
+
+
+Initialisierung - sensorAddress ist die Adresse des Sensors über den wir sprechen (für AVR: "Meine" Adresse):
+	void communication_init(uint32_t sensorAddress);
+
+Von extern (Funk) empfangene Bytes füttern:
+	void communication_dataIn(uint8_t * dataPtr, uint8_t len);
+
+Diese Bytes sollen zum Funk gesendet werden - diese Funktion muss extern implementiert werden:
+	void com_sendOutgoingData(uint8_t * ptr, uint8_t length);
+
+Regelmäßig nachgucken ob Daten da sind bzw Timeouts zählen. Sollte jede Millisekunde aufgerufen werden (ansonsten die Timeout-Werte anpassen)
+	void communication_poll(void);
+
+Wir haben eine gültig verschlüsselte Nachricht empfangen - diese Funktion muss extern implementiert werden:
+	void com_processValidMessage(uint8_t * payload, uint8_t payloadLength);
+
+Die Nachricht ist verloren gegangen/die Sequenznummer musste erst abgeglichen werden - diese Funktion muss extern implementiert werden:
+	void com_messageTimeout();
+
+Die letzte gesendete Nachricht ist angekommen:
+	void com_messageAcked();
+	
+Datenpaket senden:
+	uint8_t com_sendMessage(uint8_t * data, uint8_t len);
+
+
+
