@@ -39,7 +39,7 @@ void setup() {
     while (!Serial) ;
 
     if (!manager.init()) {
-        Serial.println("init failed");
+        Serial.println(F("Init failed"));
     } else {
         driver.setFrequency(433);
     }
@@ -49,16 +49,15 @@ void setup() {
 void printMessageHeader(uint8_t from, uint32_t number) {
 
     Serial.println(DIVIDER);
-    Serial.print("Got message from unit: ");
+    Serial.print(F("Got message from unit: "));
     Serial.println(from, HEX);
-    Serial.print("Transmission number: ");
+    Serial.print(F("Transmission number: "));
     Serial.println(number);
-    Serial.println("");
 }
 
 void printDustConcentration(uint8_t normalizer, SensorReadings *readings) {
     float concentration = readings->dustConcentration_f / (float) normalizer;
-    Serial.print("Dust concentration: ");
+    Serial.print(F("Dust concentration: "));
     Serial.println(concentration);
 }
 
@@ -66,10 +65,10 @@ void printWeather(uint8_t normalizer, SensorReadings *readings) {
 
     float humidity = readings->humidity_f / (float) normalizer;
     float temperature = readings->temperature_f / (float) normalizer;
-    Serial.print("Humidity: ");
+    Serial.print(F("Humidity: "));
     Serial.print(humidity);
-    Serial.print(" %\t");
-    Serial.print("Temperature: ");
+    Serial.print(F(" %\t"));
+    Serial.print(F("Temperature: "));
     Serial.println(temperature);
 }
 
@@ -77,16 +76,16 @@ void printLight(SensorReadings *readings) {
 
     uint16_t lightSensorValue = readings->lightSensorValue;
     uint16_t lightResistance = readings->lightResistance;
-    Serial.print("Light intensity: ");
+    Serial.print(F("Light intensity: "));
     Serial.print(lightSensorValue);
-    Serial.print("\t");
-    Serial.print("resistance: ");
+    Serial.print(F("\t"));
+    Serial.print(F("resistance: "));
     Serial.println(lightResistance);
 }
 
 void printLoudness(SensorReadings * readings) {
     uint16_t loudness = readings->loudness;
-    Serial.print("Loudness: ");
+    Serial.print(F("Loudness: "));
     Serial.println(loudness);
 }
 

@@ -1,24 +1,28 @@
-#include <Arduino.h>
 #include "DustCalculator.h"
 
-DustCalculator::DustCalculator(uint32_t sampletimeMs, uint8_t srcPin) {
+DustCalculator::DustCalculator(uint32_t sampletimeMs, uint8_t srcPin, uint8_t minCount, uint8_t capacity) {
     _srcPin = srcPin;
     _sampleTimeMs = sampletimeMs;
     _concentration = 0;
-    reset();
+    _minCount = minCount;
+    _capacity = capacity;
 }
 
 void DustCalculator::init() {
 
     pinMode(_srcPin, INPUT);
+
+    _median = new RunningMedian(_capacity);
+
+    _startTime = millis();
 }
 
 float DustCalculator::getConcentration() {
 
-    return _concentration;
+    return _median->getMedian();
 }
 
-boolean DustCalculator::calculate() {
+boolean DustCalculator::loop() {
 
     // how long the pin had a low pulse block until it got HIGH (microseconds!)
     _duration = pulseIn(_srcPin, LOW);
@@ -32,11 +36,10 @@ boolean DustCalculator::calculate() {
         _ratio = _lowPulseOccupancy / (_sampleTimeMs * 10.0);
 
         // using spec sheet curve
-        float c = 1.1 * pow(_ratio, 3) - 3.8 * pow(_ratio, 2) + 520 * _ratio + 0.62;
+        _concentration = 1.1 * pow(_ratio, 3) - 3.8 * pow(_ratio, 2) + 520 * _ratio + 0.62;
 
-        // calculate mean
-        _n += 1;
-        _concentration = _concentration * (_n - 1) / _n + c / _n;
+        // Serial.println(_concentration);
+        _median->add(_concentration);
 
         // reset values to start sampling again
         _lowPulseOccupancy = 0;
@@ -46,10 +49,16 @@ boolean DustCalculator::calculate() {
     return false;
 }
 
+boolean DustCalculator::isCalculated() {
+    uint8_t count = _median->getCount();
+    return count >= _minCount
+        || count >= _capacity;
+}
+
 void DustCalculator::print() {
 
-    Serial.print("concentration = ");
-    Serial.print(_concentration);
+    Serial.print("concentration (median) = ");
+    Serial.print(getConcentration());
     Serial.println(" pcs/0.01cf");
 }
 
@@ -59,5 +68,5 @@ void DustCalculator::reset() {
     _startTime = millis();
     _lowPulseOccupancy = 0;
     _ratio = 0.0;
-    _n = 0;
+    _median->clear();
 }

@@ -33,25 +33,24 @@ boolean LoRaTransmitter::init() {
     }
 }
 
-void LoRaTransmitter::send(uint16_t receiver, SensorReadings *readings) {
-    uint8_t dataFrameSize = sizeof(*readings);
+void LoRaTransmitter::send(uint16_t receiver, uint8_t *data) {
+    uint8_t dataFrameSize = sizeof(*data);
     /*
     sensor readings are going to be send, therefor the buffer
     have to has the size of the struct
     */
     uint8_t buf[dataFrameSize];
     // copy all data from sensor readings into the buffer
-    memcpy(buf, readings, dataFrameSize);
+    memcpy(buf, data, dataFrameSize);
 
     Serial.print("Sending to ");
     Serial.println(receiver);
 
     digitalWrite(_led, HIGH);
     if (_manager->sendtoWait(buf, dataFrameSize, receiver)) {
-        Serial.println("Message sent");
-        readings->counter = readings->counter + 1;
+        Serial.println(F("Message sent"));
     } else {
-        Serial.println("sendtoWait failed");
+        Serial.println(F("sendtoWait failed"));
     }
     digitalWrite(_led, LOW);
 }

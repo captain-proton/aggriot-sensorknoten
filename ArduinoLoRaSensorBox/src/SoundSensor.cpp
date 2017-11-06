@@ -13,7 +13,7 @@ void SoundSensor::print() {
     Serial.println(_loudness);
 }
 
-void SoundSensor::read() {
+void SoundSensor::loop() {
     long sum = 0;
     for(int i = 0; i < 32; i++) {
         sum += analogRead(_pin);

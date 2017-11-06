@@ -9,15 +9,11 @@ TemperatureHumiditySensor::TemperatureHumiditySensor(uint8_t pin) {
 }
 
 void TemperatureHumiditySensor::init() {
-    Serial.print("LIBRARY VERSION: ");
-    Serial.println(DHT_LIB_VERSION);
-    Serial.println();
-    Serial.println("Type,\tstatus,\tHumidity (%),\tTemperature (C)");
     dht DHT;
     _dht = &DHT;
 }
 
-boolean TemperatureHumiditySensor::read() {
+boolean TemperatureHumiditySensor::loop() {
     // READ DATA
     int chk = _dht->read11(_pin);
     float h = 0.0;
@@ -36,13 +32,13 @@ boolean TemperatureHumiditySensor::read() {
 
     	return true;
     case DHTLIB_ERROR_CHECKSUM:
-    	Serial.println("DHT Checksum error");
+    	Serial.println(F("DHT Checksum error"));
     	break;
     case DHTLIB_ERROR_TIMEOUT:
-    	Serial.println("DHT Time out error");
+    	Serial.println(F("DHT Time out error"));
     	break;
     default:
-    	Serial.println("DHT Unknown error");
+    	Serial.println(F("DHT Unknown error"));
     	break;
     }
     _errors += 1;
