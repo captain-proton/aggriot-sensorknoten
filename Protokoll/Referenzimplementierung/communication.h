@@ -57,4 +57,7 @@ void com_messageTimeout();
 // Datenpaket senden:
 uint8_t com_sendMessage(uint8_t * data, uint8_t len);
 
+// Systemzeit in Millisekunden abfragen:
+uint32_t com_getMillis();
+
 #endif

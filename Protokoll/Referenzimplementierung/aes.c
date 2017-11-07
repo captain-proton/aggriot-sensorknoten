@@ -54,12 +54,14 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 	
 //	printf("En/Decrypting len=%d with incoming=%d, sensAddr=0x%x, seqNum=%d.\n", payloadLength, incoming, sensorAddress, sequenceNumber);
 	
+/*
 	uint8_t i;
 	printf("Before crypt: ");
 	for(i=0;i<payloadLength;i++)
 		printf("%.2x ", payload[i]);
 	printf("\n");
 	i = payloadLength;
+*/
 	
 	do {
 		// OTP-Block erzeugen:
@@ -73,7 +75,6 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 			block.byteblock[len] = 0;
 #endif
 		
-#warning TODO: Eventuell Big Endian einfügen? Je nachdem wie die andere Seite es implementiert
 #ifdef _AVR_IO_H_
 		// Ursprungsdaten einfüllen
 		block.sensorAddress = sensorAddress;
@@ -86,11 +87,6 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 		
 		do {
 			if (!payloadLength--) {
-				payloadLength = i;
-				printf("After crypt: ");
-				for(i=0;i<payloadLength;i++)
-					printf("%.2x ", payload[i]);
-				printf("\n");
 				return;
 			}
 			payload[bufferPosition] ^= block.byteblock[bufferPosition & (BLOCK_SIZE-1)];

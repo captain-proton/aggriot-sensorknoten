@@ -1,10 +1,14 @@
-#include <avr/io.h>
 #include <stdio.h>
 #include "aes.h"
 #include "communication.h"
 #include "ringBuffer.h"
 
+#include <avr/io.h>
+
+
 #define max(x, y)							((x) > (y) ? (x) : (y))
+
+#define CRC32LEN	(sizeof(uint32_t))
 
 uint16_t crc_calcCRC16r(uint16_t crc, uint8_t c) {
   unsigned char i;
@@ -14,7 +18,7 @@ uint16_t crc_calcCRC16r(uint16_t crc, uint8_t c) {
     } else {
     	crc	>>=	1;
     }
-    c	>>=	1;
+    c >>=	1;
   }
   return crc;
 }
@@ -27,7 +31,7 @@ uint32_t crc_calcCRC32r(uint32_t crc, uint8_t c) {
     } else {
     	crc	>>=	1;
     }
-    c	>>=	1;
+    c >>= 1;
   }
   return crc;
 }
@@ -46,7 +50,7 @@ uint32_t crc_calcCRC32r(uint32_t crc, uint8_t c) {
 
 RB_BUFFER_t * inBuffer;									// Eingangspuffer
 static uint8_t executingCOMCheck = 0;		// Wird communication_poll gerade ausgeführt?
-static uint8_t in_timeout_ms = 0; 			// Timeout für eingehende Bytes
+static uint32_t lastByteReceived = 0; 			// Timeout für eingehende Bytes
 static uint32_t unAckedMessage;					// Welche Sequenznummer hat die unbestätigte Nachricht die noch unterwegs ist?
 static uint16_t messageTimeout;					// Timeout für eine unbestätigte Nachricht
 static uint32_t currentSequenceNumber;	// Aktuelle Sequenznummer
@@ -67,6 +71,7 @@ void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) __attribu
 void com_messageTimeout() __attribute__((weak));
 void com_messageAcked() __attribute__((weak));
 void com_sendOutgoingData(uint8_t * ptr, uint8_t length) __attribute__((weak));
+uint32_t com_getMillis() __attribute__((weak));
 #endif
 
 void communication_init(uint32_t sensorAddress) {
@@ -83,6 +88,7 @@ void communication_dataIn(uint8_t * dataPtr, uint8_t len) {
 	printf("Received %d bytes..\n", len);
 	while (len--)
 		rb_put(inBuffer, *dataPtr++);
+	lastByteReceived = com_getMillis();
 }
 
 // Regelmäßig nachgucken ob Daten da sind bzw Timeouts zählen
@@ -91,6 +97,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 	uint8_t cmdlen;
 	uint8_t i;
 	uint16_t mycrc;
+	uint32_t timeNow = com_getMillis();
 	
 #ifndef TESTING
 	if (executingCOMCheck)
@@ -108,7 +115,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 				
 				// Längeninformation ist drittes Byte, nach den Flags:
 				cmdlen = rb_peek_sync(inBuffer, 2);
-				uint16_t packetLength = max(cmdlen, 4) + sizeof(MessageHeader) + sizeof(MessageFooter);
+				uint16_t packetLength = max(cmdlen, MIN_DATA_SIZE) + sizeof(MessageHeader) + sizeof(MessageFooter);
 				
 				if (rxc >= packetLength) {
 					
@@ -137,59 +144,47 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 					if (((mycrc >> 8) == rb_peek_sync(inBuffer, packetLength-1)) && (((uint8_t)mycrc) == rb_peek_sync(inBuffer, packetLength-2))) {
 						printf("is valid.\n");
 						
-						// Korrekt empfangen. Paketdaten in die Headerstrukturen kopieren:
-						MessageHeader mHdr;
-						MessageFooter mFtr;
-						uint8_t messageData[max(cmdlen, 4)];
-						uint8_t len = sizeof(MessageHeader);
-						uint16_t p = 0;
-						uint8_t * ptr = (uint8_t*)&mHdr;
-						
-						// Daten im Header kopieren:
-						while (len--)
-							*ptr++ = rb_peek_sync(inBuffer, p++);
-						
-						// Daten selbst kopieren:
-						len = sizeof(messageData);
-						ptr = &messageData[0];
-						while (len--)
-							*ptr++ = rb_peek_sync(inBuffer, p++);
-						
-						// Daten im Footer kopieren:
-						ptr = (uint8_t*)&mFtr;
-						len = sizeof(MessageFooter);
-						while (len--)
-							*ptr++ = rb_peek_sync(inBuffer, p++);
+						// Korrekt empfangen. Paketdaten kopieren:
+						uint8_t recvData[packetLength];
+						uint8_t p = 0;
+						for (p=0;p<packetLength;p++)
+							recvData[p] = rb_peek_sync(inBuffer, p);
+						// Header-Struktur daraus machen:
+						MessageHeader * mHdr = (MessageHeader*)&recvData[0];
+						uint8_t * messageData = &recvData[sizeof(MessageHeader)];
+						MessageFooter * mFtr = (MessageFooter*)&recvData[sizeof(MessageHeader) + max(cmdlen, MIN_DATA_SIZE)];
 						
 						// Daten aus dem Eingangspuffer löschen:
 						rb_delete_sync(inBuffer, packetLength);
 						
 						// Prüfen ob wir der Empfänger sind:
-						if ((mHdr.flags >> 6) == BITS_VERSION_0) {
-							if (((mHdr.flags & FLAG_A_TO_S) ? ROLE_SENSOR : ROLE_AGGREGATOR) == currentRole) {
+						if ((mHdr->flags >> 6) == BITS_VERSION_0) {
+							if (((mHdr->flags & FLAG_A_TO_S) ? ROLE_SENSOR : ROLE_AGGREGATOR) == currentRole) {
 								
-								printf("-- Incoming message to sensor 0x%x --\n", mHdr.sensorAddress);
+								printf("-- Incoming message to sensor 0x%x --\n", mHdr->sensorAddress);
 								
 								
 								// Eingehende Nachricht zu einem Sensor/Aggregator. Sind wir gemeint?
-								if ((mHdr.sensorAddress == myAddress) || (currentRole == ROLE_AGGREGATOR)) {
+								if ((mHdr->sensorAddress == myAddress) || (currentRole == ROLE_AGGREGATOR)) {
 									printf("   That's me!\n");
 									
 									// Versuchen die Nachricht zu entschlüsseln:
-									aes_cryptPayload(&messageData[0], sizeof(messageData), mHdr.sensorAddress, mHdr.sequenceNumber, mHdr.flags & FLAG_A_TO_S); // 1 = Incoming message
+									aes_cryptPayload(&messageData[0], max(cmdlen, MIN_DATA_SIZE)+CRC32LEN, mHdr->sensorAddress, mHdr->sequenceNumber, mHdr->flags & FLAG_A_TO_S); // 1 = Incoming message
 									
 									uint32_t calculatedCRC = CRC32START;
 									// Testen, ob die Prüfsumme jetzt zu den entschlüsselten Daten passt:
-									printf(":: CRC32 over %d bytes.\n", sizeof(messageData));
-									for (i=0;i<sizeof(messageData);i++) {
+									printf(":: CRC32 over %d bytes: ", max(cmdlen, MIN_DATA_SIZE));
+									for (i=0;i<max(cmdlen, MIN_DATA_SIZE);i++) {
+										printf("%.2x ", messageData[i]);
 										calculatedCRC = crc_calcCRC32r(calculatedCRC, messageData[i]);
 									}
+									printf("\n");
 									
 									// Ist korrekt ver/entschlüsselt (und übertragen) worden?
-									if (calculatedCRC == mFtr.payloadCRC) {
+									if (calculatedCRC == mFtr->payloadCRC) {
 										printf("   Valid encryption.\n");
 										// Nachricht verarbeiten:
-										com_messageReceived(&mHdr, &messageData[0], cmdlen);
+										com_messageReceived(mHdr, &messageData[0], cmdlen);
 										
 									} else { // .. nicht korrekt verschlüsselt: Nachricht ignorieren.
 										printf("   Invalid encryption. Dropping message.\n");
@@ -231,15 +226,11 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 			// wird der Befehl abgebrochen da wir evtl ein nicht-sync-Zeichen als SYNC interpretiert haben weil der Sensor
 			// den Anfang des echten Befehls nicht mitbekommen hat. In dem Fall übergehen wir das SYNC-Zeichen und laufen direkt zum
 			// nächsten SYNC-Byte.
-			if (!in_timeout_ms) {
+			if ((timeNow - lastByteReceived) > RF_UART_IN_TIMEOUT_MS) {
 				printf("Byte timeout. Dropping start byte.\n");
 				// SYNC wegwerfen:
 				rb_delete_sync(inBuffer, 1);
 				continue; // Und gleich beim nächsten Byte gucken ob das ein SYNC-Byte sein könnte..
-			} else {
-				// Wir laufen einmal pro Millisekunde. Perfekt also um den Zähler runter zu zählen wenn das nötig ist.
-				in_timeout_ms--; // Tick, tick..
-				break;
 			}
 		} else {
 			// Zeichen wird verworfen:
@@ -249,9 +240,8 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 	
 	// Timeout für erwartete ACKs:
 	if (unAckedMessage) {
-		if (!messageTimeout--) {
+		if ((timeNow - messageTimeout) > MESSAGE_ACK_TIMEOUT) {
 			unAckedMessage = 0;
-			messageTimeout = 0;
 			com_messageTimeout();
 		}
 	}
@@ -284,19 +274,24 @@ void communication_sendCommand(uint32_t nodeAddress, uint8_t* data, uint8_t data
 	uint8_t * ptrA = dataPtr;
 	uint8_t len = max(data_len, MIN_DATA_SIZE);		// Gesamtlänge der Daten, mit Padding
 	uint8_t bytesLeft = data_len;									// Länge der zu kopierenden Daten. Nur unterschiedlich wenn Länge < MIN_DATA_SIZE
+	
+	printf("Create CRC32: ");
 	mFtr->payloadCRC = CRC32START;								// Startwert für CRC
 	// So lange wir Datenbytes haben..
 	while (bytesLeft--) {
 		len--;
 		mFtr->payloadCRC = crc_calcCRC32r(mFtr->payloadCRC, *data);		// CRC updaten..
+		printf("%.2x ", *data);
 		*ptrA++ = *data++;																						// und in Ausgangspuffer kopieren
 	}
+	printf("\n");
+
 	// Über die Nutzdaten hinaus gehende Bytes mit einrechnen (0-Padding)
 	while (len--)
 		mFtr->payloadCRC = crc_calcCRC32r(mFtr->payloadCRC, 0);
 	
 	// Daten in place verschlüsseln:
-	aes_cryptPayload(dataPtr, max(data_len, MIN_DATA_SIZE), mHdr->sensorAddress, useSequenceNumber, mHdr->flags & FLAG_A_TO_S);
+	aes_cryptPayload(dataPtr, max(data_len, MIN_DATA_SIZE)+CRC32LEN, mHdr->sensorAddress, useSequenceNumber, mHdr->flags & FLAG_A_TO_S);
 	
 	// Gesamt-Prüfsumme berechnen:
 	mFtr->messageCRC = CRC16START;
@@ -450,12 +445,18 @@ uint8_t com_sendMessage(uint8_t * data, uint8_t len) {
 	}
 	
 	unAckedMessage = ++(*intSeqNum);
-	messageTimeout = MESSAGE_ACK_TIMEOUT;
+	messageTimeout = com_getMillis();
 	
 	// Müssen wir so verschachtelt machen da die Funktion hier nicht vor dem Ende der Simulation zurückkehrt:
 	communication_sendCommand(myAddress, data, len, *intSeqNum, 0); // 0=Das ist kein ACK.
 	
 	return 1;
+}
+
+uint32_t com_getMillis() {
+	// Dummy
+	static uint32_t myMillis;
+	return myMillis++;	
 }
 
 #ifdef TESTING
@@ -469,8 +470,12 @@ int main() {
 	currentRole = ROLE_SENSOR;
 	
 	// Nachricht mit Sequenznummer 123 senden:
-	uint8_t * payload = "Das ist ein Test.";
-	com_sendMessage(payload, 17);
+
+	currentSequenceNumber = simSeqNum = 5;
+	
+	uint8_t * payload = "Hallo welt";
+	
+	com_sendMessage(payload, 10);
 	
 	printf("\n\nSTEP 2\n\n\n");
 	
