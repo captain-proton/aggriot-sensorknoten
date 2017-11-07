@@ -72,8 +72,9 @@ void com_sendOutgoingData(uint8_t * ptr, uint8_t length) __attribute__((weak));
 void communication_init(uint32_t sensorAddress) {
 	static uint8_t inBuffer_space[256];
 	inBuffer = rb_createBuffer(&inBuffer_space[0], sizeof(inBuffer_space));
-	if (inBuffer)
+	if (inBuffer) {
 		printf("Input buffer created.\n");
+	}
 	myAddress = sensorAddress;
 }
 
