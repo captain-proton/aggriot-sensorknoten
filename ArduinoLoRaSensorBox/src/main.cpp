@@ -24,28 +24,29 @@ are normalized. They are marked with the suffix _f.
 #include <TaskScheduler.h>
 
 #include "DustCalculator.h"
-#include "LoRaTransmitter.h"
+#include "Radio.h"
 #include "TemperatureHumiditySensor.h"
 #include "LightSensor.h"
 #include "SoundSensor.h"
 #include "SensorReadings.h"
 
-// #define _TASK_SLEEP_ON_IDLE_RUN
+extern "C" {
+    #include "communication.h"
+    #include "aes.h"
+}
 
-/* Must be defined if RHReliableDatagram is used */
-#define TRANSMITTER_ADDRESS     1
-#define RECEIVER_ADDRESS        2
+// #define _TASK_SLEEP_ON_IDLE_RUN
 
 /*
 Do not send data on every loop. the delay is used to calculate if data
 should be send or not.
 */
-#define SEND_DELAY_MS           120000L
+#define SEND_DELAY_MS           5000L
 
 #define DEFAULT_SENSOR_INTERVAL 1000
 
 /* Time dust values are measured */
-#define DUST_MEASURING_TIME     30000L
+#define DUST_MEASURING_TIME     20000L
 #define DUST_MIN_MEDIAN_COUNT   5
 #define DUST_MEDIAN_CAPACITY    10
 
@@ -83,7 +84,8 @@ LightSensor lightSensor(A1);
 SoundSensor soundSensor(A2);
 
 /* Transmission via LoRa */
-LoRaTransmitter transmitter(TRANSMITTER_ADDRESS);
+RH_RF95 driver;
+Radio radio(&driver);
 
 /* Data container that is delivered over the network */
 SensorReadings readings;
@@ -123,26 +125,31 @@ void reset() {
 
 void sendData() {
 
-    Serial.print(millis());
-    Serial.println(" - sendData() ");
-    readings.floatNormalizer = FLOAT_NORMALIZER;
+    Serial.println(F("sending data"));
+    delay(20);
+    // readings.data.floatNormalizer = FLOAT_NORMALIZER;
+    //
+    // readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
+    // readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
+    //
+    // readings.data.dustConcentration_f = dustCalculator.isCalculated()
+    //         ? (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer)
+    //         : 0;
+    //
+    // readings.data.lightSensorValue = lightSensor.getSensorData();
+    // readings.data.lightResistance = lightSensor.getResistance();
+    //
+    // readings.data.loudness = soundSensor.getLoudness();
+    // readings.print();
 
-    readings.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.floatNormalizer);
-    readings.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.floatNormalizer);
+    // uint8_t len = readings.size();
+    // uint8_t data[len];
+    // readings.serialize(data);
+    // radio.send(RECEIVER_ADDRESS, data, &len);
+    uint8_t data[] = "Hallo welt";
+    uint8_t len = 10;
+    com_sendMessage(data, len);
 
-    readings.dustConcentration_f = dustCalculator.isCalculated()
-            ? (uint32_t) (dustCalculator.getConcentration() * readings.floatNormalizer)
-            : 0;
-
-    readings.lightSensorValue = lightSensor.getSensorData();
-    readings.lightResistance = lightSensor.getResistance();
-
-    readings.loudness = soundSensor.getLoudness();
-    readings.print();
-
-    uint8_t data[readings.size()];
-    readings.serialize(data);
-    transmitter.send(RECEIVER_ADDRESS, data);
     reset();
 }
 
@@ -155,8 +162,11 @@ void setup()
     // data rate in bits per second for serial transmission
     Serial.begin(9600);
 
-    if (!transmitter.init())
-        Serial.println(F("Init failed"));
+    if (driver.init()) {
+        driver.setFrequency(433);
+    } else {
+        return;
+    }
 
     dustCalculator.init();
 
@@ -182,6 +192,13 @@ void setup()
     scheduler.addTask(tSendData);
     tSendData.enableDelayed(SEND_DELAY_MS);
     Serial.println(F("Enabled data send"));
+
+    communication_init(0x11223344);
+    uint8_t key[] = {0xAB, 0xCD, 0xEF, 0x91,
+        0x34, 0xEF, 0xAB, 0xCD,
+        0xEF, 0x91, 0x34, 0xEF,
+        0xAB, 0xCD, 0xEF, 0x91};
+    aes_init(&key[0], 16);
 }
 
 // called after setup(). loops consecutively. there is not guarantee that
@@ -190,5 +207,35 @@ void loop()
 {
     scheduler.execute();
 
-    dustCalculator.loop();
+    // dustCalculator.loop();
+
+    radio.loop();
+
+    communication_poll();
+    // Serial.println(millis());
+}
+
+/**
+ * transmit data via radio
+ * @param ptr    dat to send
+ * @param length length of the message
+ */
+void com_sendOutgoingData(uint8_t * ptr, uint8_t length) {
+    // Serial.println(F("com_sendOutgoingData()"));
+    // for (size_t i = 0; i < length; i++) {
+    //     Serial.print(ptr[i], HEX);
+    // }
+    radio.send(ptr, length);
+}
+
+void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) {
+    // data from aggregator to this instance
+}
+
+void com_messageTimeout() {
+    radio.retry();
+}
+
+void com_messageAcked() {
+    // is mir equal
 }

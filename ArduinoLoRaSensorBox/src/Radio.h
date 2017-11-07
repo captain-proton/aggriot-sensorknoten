@@ -6,23 +6,23 @@ Based on:
 - Sending sensor readings
     https://forum.arduino.cc/index.php?topic=355434.0
  */
-#ifndef LoRaTransmitter_H
-#define LoRaTransmitter_H
+#ifndef Radio_H
+#define Radio_H
 
 #include <Arduino.h>
 #include <RH_RF95.h>
-#include <RHReliableDatagram.h>
 
-class LoRaTransmitter {
+class Radio {
 
 public:
-    LoRaTransmitter(uint8_t address);
-    boolean init();
-    void send(uint16_t receiver, uint8_t *data);
+    Radio(RH_RF95 *driver);
+    void send(uint8_t *data, uint8_t len);
+    void retry();
+    void handle_message(uint8_t * dataPtr, uint8_t len);
+    void loop();
 private:
     uint8_t _address;
-    uint8_t _led;
-    RHReliableDatagram *_manager;
+    RH_RF95 *_driver;
 };
 
 #endif
