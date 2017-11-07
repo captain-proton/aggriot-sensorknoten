@@ -8,6 +8,8 @@
 #ifndef _RING_BUFFER_H_
 #define _RING_BUFFER_H_
 
+#include <stdint.h>
+
 typedef struct {
 	uint16_t readPosition;
 	uint16_t writePosition;

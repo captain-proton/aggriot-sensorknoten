@@ -4,6 +4,7 @@
  * Created: 27.10.2017 18:01:39
  *  Author: thagemeier
  */ 
+#include <avr/io.h>
 #include "aes.h"
 
 // These functions are provided by the assembler file. They should not be accessed from anywhere else but here:
@@ -27,7 +28,7 @@ void aes_setKey(const uint8_t* thiskey, uint8_t len) {
 	if (len != BLOCK_SIZE)
 		return;
 #ifdef _AVR_IO_H_
-	aes_expand_key(thiskey, &expandedEncryptionKey[0]);
+	aes_expand_key((uint8_t*)thiskey, &expandedEncryptionKey[0]);
 #else
 #warning NOT ON AVR: AES not included!
 #endif
@@ -51,7 +52,7 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 	uint8_t blockNumber = incoming ? 0 : 128;
 	uint8_t bufferPosition = 0;
 	
-	printf("En/Decrypting len=%d with incoming=%d, sensAddr=0x%x, seqNum=%d.\n", payloadLength, incoming, sensorAddress, sequenceNumber);
+//	printf("En/Decrypting len=%d with incoming=%d, sensAddr=0x%x, seqNum=%d.\n", payloadLength, incoming, sensorAddress, sequenceNumber);
 	
 	uint8_t i;
 	printf("Before crypt: ");
@@ -80,7 +81,7 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 		block.blockNumber = blockNumber;
 		
 		// Verschlüsseln:
-		aes_encrypt(&block, &expandedEncryptionKey[0]);
+		aes_encrypt((uint8_t*)&block, &expandedEncryptionKey[0]);
 #endif
 		
 		do {

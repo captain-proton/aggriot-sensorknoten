@@ -1,4 +1,6 @@
+#include <avr/io.h>
 #include <stdio.h>
+#include "aes.h"
 #include "communication.h"
 #include "ringBuffer.h"
 
@@ -87,7 +89,6 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 	uint16_t rxc;
 	uint8_t cmdlen;
 	uint8_t i;
-	uint8_t p;
 	uint16_t mycrc;
 	
 #ifndef TESTING
@@ -404,7 +405,7 @@ void com_messageTimeout() {
 	printf("MESSAGE TIMEOUT!\n");
 	
 	// Nachricht mit Sequenznummer 123 senden:
-	uint8_t * payload = "Das ist zwei Test.";
+	uint8_t * payload = (uint8_t*)"Das ist zwei Test.";
 	com_sendMessage(payload, 18);	
 	//#warning TODO.
 }

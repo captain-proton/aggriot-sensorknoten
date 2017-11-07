@@ -5,6 +5,7 @@
  *  Author: thagemeier
  */ 
 
+#include <avr/io.h>
 #include "ringBuffer.h"
 #ifndef NO_AVR
 #include <avr/interrupt.h>
