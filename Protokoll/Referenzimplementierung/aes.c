@@ -79,7 +79,6 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 	do {
 		// OTP-Block erzeugen:
 		EncryptionBlock block;
-		EncryptionBlock b2;
 		// Zero memory:
 		uint8_t len = BLOCK_SIZE;
 		while (len--)
