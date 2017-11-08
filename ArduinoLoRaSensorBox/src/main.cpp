@@ -61,9 +61,7 @@ void readWeather();
 void readSound();
 void readLight();
 void sendData();
-bool onHandshakeEnable();
-void onHandshakeDisable();
-void retryHandshake();
+void handshake();
 
 // inline Task(unsigned long aInterval=0, long aIterations=0, void (*aCallback)()=NULL, Scheduler* aScheduler=NULL, bool aEnable=false, bool (*aOnEnable)()=NULL, void (*aOnDisable)()=NULL);
 
@@ -81,7 +79,7 @@ Task that is going to send data in an interval.
  */
 Task tSendData(SEND_DELAY_MS, TASK_FOREVER, &sendData);
 
-Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, NULL, &scheduler, false, &onHandshakeEnable, &onHandshakeDisable);
+Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, &handshake);
 
 /* SENSORS */
 DustCalculator dustCalculator(DUST_MEASURING_TIME, 8, DUST_MIN_MEDIAN_COUNT, DUST_MEDIAN_CAPACITY);
@@ -169,22 +167,11 @@ void sendData() {
     reset();
 }
 
-bool onHandshakeEnable() {
-    Serial.println(F("Starting handshake"));
-    radio.handshake();
-    tHandshake.setCallback(&retryHandshake);
-    return true;
-}
-
-void onHandshakeDisable() {
-    if (radio.isConnected()) {
-        tHandshake.disable();
-    }
-}
-
-void retryHandshake() {
+void handshake() {
     if (!radio.isConnected()) {
         radio.handshake();
+    } else {
+        tHandshake.disable();
     }
 }
 
