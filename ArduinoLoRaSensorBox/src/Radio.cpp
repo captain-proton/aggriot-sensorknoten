@@ -41,6 +41,14 @@ void Radio::retry() {
     Serial.println(F("retrying"));
 }
 
+void Radio::handshake() {
+    send(_handshakePayload, *_handshakeLen);
+}
+
+bool Radio::isConnected() {
+    return _isConnected;
+}
+
 void Radio::loop() {
     if (_driver->available()) {
         Serial.println(F("receiving message"));
@@ -56,4 +64,30 @@ void Radio::loop() {
 void Radio::handle_message(uint8_t * dataPtr, uint8_t len)
 {
     Serial.write(dataPtr, len);
+
+    if (!_isConnected
+        && len > 0
+        && len == *_handshakeLen
+        && dataPtr[0] == *_handshakePayloadType)
+    {
+        bool b = true;
+        for (uint8_t i = 0; i < len; i++) {
+            b = b // if b is true compare next value
+                ? dataPtr[i] == _handshakePayload[i]
+                : b; // otherwise keep b as false
+        }
+        _isConnected = b;
+        if (_isConnected) {
+            Serial.println(F("Handshake successful"));
+        } else {
+            Serial.println(F("Message looks like handshake response, but was not equal"));
+        }
+    }
+}
+
+void Radio::setHandshakeData(uint8_t *handshakePayload, uint8_t *handshakeLen, uint8_t *handshakePayloadType) {
+
+    _handshakePayload = handshakePayload;
+    _handshakeLen = handshakeLen;
+    _handshakePayloadType = handshakePayloadType;
 }

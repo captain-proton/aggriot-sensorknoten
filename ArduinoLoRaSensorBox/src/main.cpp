@@ -42,6 +42,7 @@ Do not send data on every loop. the delay is used to calculate if data
 should be send or not.
 */
 #define SEND_DELAY_MS           5000L
+#define HANDSHAKE_DELAY_MS      300000L
 
 #define DEFAULT_SENSOR_INTERVAL 1000
 
@@ -60,6 +61,9 @@ void readWeather();
 void readSound();
 void readLight();
 void sendData();
+bool onHandshakeEnable();
+void onHandshakeDisable();
+void retryHandshake();
 
 // inline Task(unsigned long aInterval=0, long aIterations=0, void (*aCallback)()=NULL, Scheduler* aScheduler=NULL, bool aEnable=false, bool (*aOnEnable)()=NULL, void (*aOnDisable)()=NULL);
 
@@ -77,15 +81,28 @@ Task that is going to send data in an interval.
  */
 Task tSendData(SEND_DELAY_MS, TASK_FOREVER, &sendData);
 
+Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, NULL, &scheduler, false, &onHandshakeEnable, &onHandshakeDisable);
+
 /* SENSORS */
 DustCalculator dustCalculator(DUST_MEASURING_TIME, 8, DUST_MIN_MEDIAN_COUNT, DUST_MEDIAN_CAPACITY);
 TemperatureHumiditySensor tempSensor(A0);
 LightSensor lightSensor(A1);
 SoundSensor soundSensor(A2);
 
+enum PayloadType {
+    PayloadTypeFull = 1,
+    PayloadTypeSmall,
+    PayloadTypeHandshake
+};
+
 /* Transmission via LoRa */
 RH_RF95 driver;
 Radio radio(&driver);
+struct {
+    uint8_t Payload[8];
+    uint8_t PayloadType = PayloadTypeHandshake;
+    uint8_t PayloadLen = sizeof(Payload);
+} HandshakeData;
 
 /* Data container that is delivered over the network */
 SensorReadings readings;
@@ -131,9 +148,13 @@ void sendData() {
     readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
     readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
 
-    readings.data.dustConcentration_f = dustCalculator.isCalculated()
-            ? (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer)
-            : 0;
+    if (dustCalculator.isCalculated()) {
+        readings.data.dustConcentration_f = (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer);
+        readings.data.payloadType = PayloadTypeFull;
+    } else {
+        readings.data.dustConcentration_f = 0;
+        readings.data.payloadType = PayloadTypeSmall;
+    }
 
     readings.data.lightSensorValue = lightSensor.getSensorData();
     readings.data.lightResistance = lightSensor.getResistance();
@@ -146,6 +167,25 @@ void sendData() {
     com_sendMessage(data, len);
 
     reset();
+}
+
+bool onHandshakeEnable() {
+    Serial.println(F("Starting handshake"));
+    radio.handshake();
+    tHandshake.setCallback(&retryHandshake);
+    return true;
+}
+
+void onHandshakeDisable() {
+    if (radio.isConnected()) {
+        tHandshake.disable();
+    }
+}
+
+void retryHandshake() {
+    if (!radio.isConnected()) {
+        radio.handshake();
+    }
 }
 
 // start of the sketch
@@ -162,6 +202,17 @@ void setup()
     } else {
         return;
     }
+
+    // if analog input pin 3 is unconnected, random analog
+    // noise will cause the call to randomSeed() to generate
+    // different seed numbers each time the sketch runs.
+    // randomSeed() will then shuffle the random function.
+    randomSeed(analogRead(3));
+
+    for (uint8_t i = 1; i < sizeof(HandshakeData.PayloadLen); i++) {
+        HandshakeData.Payload[i] = random(0, 255);
+    }
+    radio.setHandshakeData(HandshakeData.Payload, &(HandshakeData.PayloadLen), &(HandshakeData.PayloadType));
 
     dustCalculator.init();
 
@@ -183,6 +234,10 @@ void setup()
     scheduler.addTask(tLight);
     tLight.enable();
     Serial.println(F("Enabled light sensor"));
+
+    scheduler.addTask(tHandshake);
+    tHandshake.enable();
+    Serial.println(F("Enabled radio handshake"));
 
     scheduler.addTask(tSendData);
     tSendData.enableDelayed(SEND_DELAY_MS);
