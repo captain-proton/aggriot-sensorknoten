@@ -126,28 +126,23 @@ void reset() {
 void sendData() {
 
     Serial.println(F("sending data"));
-    delay(20);
-    // readings.data.floatNormalizer = FLOAT_NORMALIZER;
-    //
-    // readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
-    // readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
-    //
-    // readings.data.dustConcentration_f = dustCalculator.isCalculated()
-    //         ? (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer)
-    //         : 0;
-    //
-    // readings.data.lightSensorValue = lightSensor.getSensorData();
-    // readings.data.lightResistance = lightSensor.getResistance();
-    //
-    // readings.data.loudness = soundSensor.getLoudness();
-    // readings.print();
+    readings.data.floatNormalizer = FLOAT_NORMALIZER;
 
-    // uint8_t len = readings.size();
-    // uint8_t data[len];
-    // readings.serialize(data);
-    // radio.send(RECEIVER_ADDRESS, data, &len);
-    uint8_t data[] = "Hallo welt";
-    uint8_t len = 10;
+    readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
+    readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
+
+    readings.data.dustConcentration_f = dustCalculator.isCalculated()
+            ? (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer)
+            : 0;
+
+    readings.data.lightSensorValue = lightSensor.getSensorData();
+    readings.data.lightResistance = lightSensor.getResistance();
+
+    readings.data.loudness = soundSensor.getLoudness();
+
+    uint8_t len = readings.size();
+    uint8_t data[len];
+    readings.serialize(data);
     com_sendMessage(data, len);
 
     reset();
@@ -207,12 +202,15 @@ void loop()
 {
     scheduler.execute();
 
-    // dustCalculator.loop();
-
     radio.loop();
 
+    dustCalculator.loop();
+
     communication_poll();
-    // Serial.println(millis());
+}
+
+uint32_t com_getMillis() {
+    return millis();
 }
 
 /**
@@ -221,15 +219,12 @@ void loop()
  * @param length length of the message
  */
 void com_sendOutgoingData(uint8_t * ptr, uint8_t length) {
-    // Serial.println(F("com_sendOutgoingData()"));
-    // for (size_t i = 0; i < length; i++) {
-    //     Serial.print(ptr[i], HEX);
-    // }
     radio.send(ptr, length);
 }
 
 void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) {
     // data from aggregator to this instance
+    radio.handle_message(payload, payloadLength);
 }
 
 void com_messageTimeout() {

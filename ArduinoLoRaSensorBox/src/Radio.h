@@ -3,8 +3,6 @@ Based on:
 
 - RadioHead rf95_reliable_datagram_client.pde sample
     http://www.airspayce.com/mikem/arduino/RadioHead/
-- Sending sensor readings
-    https://forum.arduino.cc/index.php?topic=355434.0
  */
 #ifndef Radio_H
 #define Radio_H

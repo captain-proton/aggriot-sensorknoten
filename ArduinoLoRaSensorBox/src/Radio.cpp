@@ -25,14 +25,12 @@ void Radio::send(uint8_t *data, uint8_t len) {
 
     if (_driver->send(data, len)) {
         _driver->waitPacketSent();
+        /*
+         set to rx mode so that in loop available messages can
+         be received.
+         */
         _driver->setModeRx();
         Serial.println(F("Message sent"));
-
-        // _driver->waitAvailableTimeout(1000);
-        // uint8_t answer[RH_RF95_MAX_MESSAGE_LEN];
-        // uint8_t answer_len = sizeof(buf);
-        // _driver->recv(answer, &answer_len);
-        // Serial.println((char*)answer);
     } else {
         Serial.println(F("sendtoWait failed"));
     }

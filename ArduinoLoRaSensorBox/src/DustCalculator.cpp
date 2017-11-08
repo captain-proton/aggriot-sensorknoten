@@ -57,9 +57,9 @@ boolean DustCalculator::isCalculated() {
 
 void DustCalculator::print() {
 
-    Serial.print("concentration (median) = ");
+    Serial.print(F("concentration (median) = "));
     Serial.print(getConcentration());
-    Serial.println(" pcs/0.01cf");
+    Serial.println(F(" pcs/0.01cf"));
 }
 
 void DustCalculator::reset() {

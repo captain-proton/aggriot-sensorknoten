@@ -9,7 +9,7 @@ SoundSensor::SoundSensor(uint8_t pin) {
 
 void SoundSensor::print() {
 
-    Serial.print("Loudness: ");
+    Serial.print(F("Loudness: "));
     Serial.println(_loudness);
 }
 

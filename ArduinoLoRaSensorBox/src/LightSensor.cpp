@@ -21,9 +21,9 @@ void LightSensor::loop() {
 }
 
 void LightSensor::print() {
-    Serial.print("Sensor value: ");
+    Serial.print(F("Sensor value: "));
     Serial.print(_raw);
-    Serial.print("\tresistance: ");
+    Serial.print(F("\tresistance: "));
     Serial.println((uint16_t)_rsensor, DEC);
 }
 
