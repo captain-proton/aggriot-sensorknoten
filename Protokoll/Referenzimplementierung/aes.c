@@ -4,7 +4,13 @@
  * Created: 27.10.2017 18:01:39
  *  Author: thagemeier
  */ 
+#ifndef TESTING
 #include <avr/io.h>
+#else
+#include "aes_c.c" // Dirty but works
+
+uint8_t * keyPtr;
+#endif
 #include "aes.h"
 
 // These functions are provided by the assembler file. They should not be accessed from anywhere else but here:
@@ -30,6 +36,13 @@ void aes_setKey(const uint8_t* thiskey, uint8_t len) {
 #ifdef _AVR_IO_H_
 	aes_expand_key((uint8_t*)thiskey, &expandedEncryptionKey[0]);
 #else
+	uint8_t i;
+	printf("Encrypting on AVR with KEY: ");
+	for (i=0;i<BLOCK_SIZE;i++) {
+		printf("%.2x ", thiskey[i]);
+	}
+	printf("\n");
+	keyPtr = thiskey;
 #warning NOT ON AVR: AES not included!
 #endif
 }
@@ -66,23 +79,43 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 	do {
 		// OTP-Block erzeugen:
 		EncryptionBlock block;
+		EncryptionBlock b2;
 		// Zero memory:
 		uint8_t len = BLOCK_SIZE;
 		while (len--)
-#ifndef _AVR_IO_H_
-			block.byteblock[len] = len+(BLOCK_SIZE*blockNumber);
-#else
 			block.byteblock[len] = 0;
-#endif
-		
-#ifdef _AVR_IO_H_
+
 		// Ursprungsdaten einfüllen
 		block.sensorAddress = sensorAddress;
 		block.sequenceNumber = sequenceNumber;
 		block.blockNumber = blockNumber;
 		
+#ifdef _AVR_IO_H_
 		// Verschlüsseln:
 		aes_encrypt((uint8_t*)&block, &expandedEncryptionKey[0]);
+#else
+		uint8_t i;
+		printf("Encrypting on AVR block: ");
+		for (i=0;i<BLOCK_SIZE;i++) {
+			printf("%.2x ", block.byteblock[i]);
+		}
+		
+		if (keyPtr) {
+			printf("with key ");
+			for (i=0;i<BLOCK_SIZE;i++) {
+				printf("%.2x ", keyPtr[i]);
+			}
+			printf("\n AES Result: ");
+			AES_ECB_encrypt(&block.byteblock[0], keyPtr, &block.byteblock[0], BLOCK_SIZE);
+			
+			for (i=0;i<BLOCK_SIZE;i++) {
+				printf("%.2x ", block.byteblock[i]);
+			}
+			printf("\n");
+			
+		} else {
+			printf("- no key known.\n");
+		}
 #endif
 		
 		do {

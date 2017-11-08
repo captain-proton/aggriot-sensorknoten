@@ -5,7 +5,10 @@
  *  Author: thagemeier
  */ 
 
+#ifndef TESTING
 #include <avr/io.h>
+#endif
+
 #include "ringBuffer.h"
 #ifndef NO_AVR
 #include <avr/interrupt.h>

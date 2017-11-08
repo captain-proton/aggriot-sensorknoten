@@ -3,8 +3,9 @@
 #include "communication.h"
 #include "ringBuffer.h"
 
+#ifndef TESTING
 #include <avr/io.h>
-
+#endif
 
 #define max(x, y)							((x) > (y) ? (x) : (y))
 
@@ -464,18 +465,28 @@ uint32_t com_getMillis() {
 int main() {
 	uint16_t i;
 	
+	uint8_t key[] = {
+		0xab, 0xcd, 0xef, 0x91, 
+		0x34, 0xef, 0xab, 0xcd, 
+		0xef, 0x91, 0x34, 0xef, 
+		0xab, 0xcd, 0xef, 0x91
+		};
+	
+	aes_init(&key[0], sizeof(key));
+	
 	// Aufsetzen:
 	communication_init(0x11223344);
+	//communication_init(0x44332211);
 	
 	currentRole = ROLE_SENSOR;
 	
 	// Nachricht mit Sequenznummer 123 senden:
 
-	currentSequenceNumber = simSeqNum = 5;
+	currentSequenceNumber = simSeqNum = 15140;
 	
-	uint8_t * payload = "Hallo welt";
+	uint8_t * payload = "\0\0\0\0\0\0\0\0";
 	
-	com_sendMessage(payload, 10);
+	com_sendMessage(payload, 8);
 	
 	printf("\n\nSTEP 2\n\n\n");
 	
