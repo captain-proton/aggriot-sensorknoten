@@ -51,16 +51,15 @@ boolean TemperatureHumiditySensor::loop() {
 
 void TemperatureHumiditySensor::print() {
 
-    Serial.print("Humidity: ");
+    Serial.print(F("Humidity: "));
     Serial.print(_humidity);
-    Serial.print(" %\t");
-    Serial.print("Temperature: ");
+    Serial.print(F(" %\t"));
+    Serial.print(F("Temperature: "));
     Serial.print(_temperature);
     Serial.println(" *C");
 }
 
 void TemperatureHumiditySensor::reset() {
-
     _n = 0;
 }
 

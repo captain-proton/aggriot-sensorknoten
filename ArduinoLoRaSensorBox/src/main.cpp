@@ -24,28 +24,30 @@ are normalized. They are marked with the suffix _f.
 #include <TaskScheduler.h>
 
 #include "DustCalculator.h"
-#include "LoRaTransmitter.h"
+#include "Radio.h"
 #include "TemperatureHumiditySensor.h"
 #include "LightSensor.h"
 #include "SoundSensor.h"
 #include "SensorReadings.h"
 
-// #define _TASK_SLEEP_ON_IDLE_RUN
+extern "C" {
+    #include "communication.h"
+    #include "aes.h"
+}
 
-/* Must be defined if RHReliableDatagram is used */
-#define TRANSMITTER_ADDRESS     1
-#define RECEIVER_ADDRESS        2
+// #define _TASK_SLEEP_ON_IDLE_RUN
 
 /*
 Do not send data on every loop. the delay is used to calculate if data
 should be send or not.
 */
-#define SEND_DELAY_MS           120000L
+#define SEND_DELAY_MS           5000L
+#define HANDSHAKE_DELAY_MS      300000L
 
 #define DEFAULT_SENSOR_INTERVAL 1000
 
 /* Time dust values are measured */
-#define DUST_MEASURING_TIME     30000L
+#define DUST_MEASURING_TIME     20000L
 #define DUST_MIN_MEDIAN_COUNT   5
 #define DUST_MEDIAN_CAPACITY    10
 
@@ -59,6 +61,7 @@ void readWeather();
 void readSound();
 void readLight();
 void sendData();
+void handshake();
 
 // inline Task(unsigned long aInterval=0, long aIterations=0, void (*aCallback)()=NULL, Scheduler* aScheduler=NULL, bool aEnable=false, bool (*aOnEnable)()=NULL, void (*aOnDisable)()=NULL);
 
@@ -76,14 +79,28 @@ Task that is going to send data in an interval.
  */
 Task tSendData(SEND_DELAY_MS, TASK_FOREVER, &sendData);
 
+Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, &handshake);
+
 /* SENSORS */
 DustCalculator dustCalculator(DUST_MEASURING_TIME, 8, DUST_MIN_MEDIAN_COUNT, DUST_MEDIAN_CAPACITY);
 TemperatureHumiditySensor tempSensor(A0);
 LightSensor lightSensor(A1);
 SoundSensor soundSensor(A2);
 
+enum PayloadType {
+    PayloadTypeFull = 1,
+    PayloadTypeSmall,
+    PayloadTypeHandshake
+};
+
 /* Transmission via LoRa */
-LoRaTransmitter transmitter(TRANSMITTER_ADDRESS);
+RH_RF95 driver;
+Radio radio(&driver);
+struct {
+    uint8_t Payload[8];
+    uint8_t PayloadType = PayloadTypeHandshake;
+    uint8_t PayloadLen = sizeof(Payload);
+} HandshakeData;
 
 /* Data container that is delivered over the network */
 SensorReadings readings;
@@ -123,27 +140,39 @@ void reset() {
 
 void sendData() {
 
-    Serial.print(millis());
-    Serial.println(" - sendData() ");
-    readings.floatNormalizer = FLOAT_NORMALIZER;
+    Serial.println(F("sending data"));
+    readings.data.floatNormalizer = FLOAT_NORMALIZER;
 
-    readings.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.floatNormalizer);
-    readings.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.floatNormalizer);
+    readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
+    readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
 
-    readings.dustConcentration_f = dustCalculator.isCalculated()
-            ? (uint32_t) (dustCalculator.getConcentration() * readings.floatNormalizer)
-            : 0;
+    if (dustCalculator.isCalculated()) {
+        readings.data.dustConcentration_f = (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer);
+        readings.data.payloadType = PayloadTypeFull;
+    } else {
+        readings.data.dustConcentration_f = 0;
+        readings.data.payloadType = PayloadTypeSmall;
+    }
 
-    readings.lightSensorValue = lightSensor.getSensorData();
-    readings.lightResistance = lightSensor.getResistance();
+    readings.data.lightSensorValue = lightSensor.getSensorData();
+    readings.data.lightResistance = lightSensor.getResistance();
 
-    readings.loudness = soundSensor.getLoudness();
-    readings.print();
+    readings.data.loudness = soundSensor.getLoudness();
 
-    uint8_t data[readings.size()];
+    uint8_t len = readings.size();
+    uint8_t data[len];
     readings.serialize(data);
-    transmitter.send(RECEIVER_ADDRESS, data);
+    com_sendMessage(data, len);
+
     reset();
+}
+
+void handshake() {
+    if (!radio.isConnected()) {
+        radio.handshake();
+    } else {
+        tHandshake.disable();
+    }
 }
 
 // start of the sketch
@@ -155,8 +184,22 @@ void setup()
     // data rate in bits per second for serial transmission
     Serial.begin(9600);
 
-    if (!transmitter.init())
-        Serial.println(F("Init failed"));
+    if (driver.init()) {
+        driver.setFrequency(433);
+    } else {
+        return;
+    }
+
+    // if analog input pin 3 is unconnected, random analog
+    // noise will cause the call to randomSeed() to generate
+    // different seed numbers each time the sketch runs.
+    // randomSeed() will then shuffle the random function.
+    randomSeed(analogRead(3));
+
+    for (uint8_t i = 1; i < sizeof(HandshakeData.PayloadLen); i++) {
+        HandshakeData.Payload[i] = random(0, 255);
+    }
+    radio.setHandshakeData(HandshakeData.Payload, &(HandshakeData.PayloadLen), &(HandshakeData.PayloadType));
 
     dustCalculator.init();
 
@@ -179,9 +222,20 @@ void setup()
     tLight.enable();
     Serial.println(F("Enabled light sensor"));
 
+    scheduler.addTask(tHandshake);
+    tHandshake.enable();
+    Serial.println(F("Enabled radio handshake"));
+
     scheduler.addTask(tSendData);
     tSendData.enableDelayed(SEND_DELAY_MS);
     Serial.println(F("Enabled data send"));
+
+    communication_init(0x11223344);
+    uint8_t key[] = {0xAB, 0xCD, 0xEF, 0x91,
+        0x34, 0xEF, 0xAB, 0xCD,
+        0xEF, 0x91, 0x34, 0xEF,
+        0xAB, 0xCD, 0xEF, 0x91};
+    aes_init(&key[0], 16);
 }
 
 // called after setup(). loops consecutively. there is not guarantee that
@@ -190,5 +244,35 @@ void loop()
 {
     scheduler.execute();
 
+    radio.loop();
+
     dustCalculator.loop();
+
+    communication_poll();
+}
+
+uint32_t com_getMillis() {
+    return millis();
+}
+
+/**
+ * transmit data via radio
+ * @param ptr    dat to send
+ * @param length length of the message
+ */
+void com_sendOutgoingData(uint8_t * ptr, uint8_t length) {
+    radio.send(ptr, length);
+}
+
+void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) {
+    // data from aggregator to this instance
+    radio.handle_message(payload, payloadLength);
+}
+
+void com_messageTimeout() {
+    radio.retry();
+}
+
+void com_messageAcked() {
+    // is mir equal
 }
