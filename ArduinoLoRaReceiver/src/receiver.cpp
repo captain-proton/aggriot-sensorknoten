@@ -39,9 +39,7 @@ void checkRadio() {
 }
 
 void clearInput() {
-    for (int i = 0; i < SERIAL_MAX_READ; i++) {
-        input[i] = 0;
-    }
+    memset(input, 0, SERIAL_MAX_READ);
     inputLen = 0;
 }
 
