@@ -4,6 +4,8 @@ void SensorReadings::serialize(uint8_t *dst) {
 
     uint8_t idx = 0;
 
+    dst[idx++] = data.payloadType;
+
     dst[idx++] = data.temperature_f;
     dst[idx++] = data.temperature_f >> 8;
 
@@ -33,8 +35,10 @@ void SensorReadings::serialize(uint8_t *dst) {
 void SensorReadings::deserialize(uint8_t *src, uint8_t size) {
 
     uint8_t full_size = sizeof(SensorData);
-
     uint8_t idx = 0;
+
+    data.payloadType = src[idx++];
+
     data.temperature_f = src[idx++];
     data.temperature_f |= src[idx++] << 8;
 
@@ -62,6 +66,7 @@ void SensorReadings::deserialize(uint8_t *src, uint8_t size) {
 }
 
 void SensorReadings::reset() {
+    data.payloadType = 0;
     data.temperature_f = 0.0;
     data.humidity_f = 0.0;
     data.dustConcentration_f = 0.0;

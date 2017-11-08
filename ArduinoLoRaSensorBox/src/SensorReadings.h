@@ -5,6 +5,7 @@
 
 typedef struct {
 
+    uint8_t payloadType;
     uint16_t temperature_f;
     uint16_t humidity_f;
     uint32_t dustConcentration_f;
