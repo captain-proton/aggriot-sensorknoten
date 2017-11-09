@@ -51,7 +51,7 @@ bool Radio::isConnected() {
 
 void Radio::loop() {
     if (_driver->available()) {
-        Serial.println(F("receiving message"));
+        Serial.println(F("Message available"));
         uint8_t buf[256];
         uint8_t len;
 

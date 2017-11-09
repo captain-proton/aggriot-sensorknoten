@@ -9,13 +9,15 @@ Based on:
 #include <SPI.h>
 #include <RH_RF95.h>
 
-#define SERIAL_MAX_READ             256
+#define SERIAL_MAX_READ                     256
+#define isSerialTimeout(_lastReadTime)      (millis() - _lastReadTime > 40)
 
 // Singleton instance of the radio driver
 RH_RF95 driver;
 
 uint8_t input[SERIAL_MAX_READ];
 int inputLen;
+uint32_t lastReadTime;
 
 /* the led is used to highlight if a message is received. */
 uint8_t led = LED_BUILTIN;
@@ -43,33 +45,28 @@ void clearInput() {
     inputLen = 0;
 }
 
-bool checkInput() {
+void readInput() {
     uint8_t available = Serial.available();
     if (available > 0) {
-        if (inputLen + available >= SERIAL_MAX_READ)
-            clearInput();
-
-        input[inputLen] = Serial.read();
-        inputLen++;
-
-        if (input[inputLen - 1] == '\n') {
-            return true;
-        }
+        Serial.readBytes(input, available);
+        inputLen += available;
+        lastReadTime = millis();
     }
-    return false;
 }
 
 void sendResponse() {
 
-    digitalWrite(led, HIGH);
+    if (inputLen > 0 && isSerialTimeout(lastReadTime)) {
 
-    driver.send(input, inputLen);
-    driver.waitPacketSent();
-    driver.setModeRx();
+        digitalWrite(led, HIGH);
 
-    clearInput();
+        driver.send(input, inputLen);
+        driver.setModeRx();
 
-    digitalWrite(led, LOW);
+        clearInput();
+
+        digitalWrite(led, LOW);
+    }
 }
 
 void setup() {
@@ -84,12 +81,13 @@ void setup() {
     } else {
         driver.setFrequency(433);
     }
+    inputLen = 0;
 }
 
 void loop() {
 
     checkRadio();
-    if (checkInput()) {
-        sendResponse();
-    }
+    readInput();
+    sendResponse();
+
 }
