@@ -10,7 +10,7 @@ Based on:
 #include <RH_RF95.h>
 
 #define SERIAL_MAX_READ                     256
-#define isSerialTimeout(_lastReadTime)      (millis() - _lastReadTime > 40)
+#define isSerialTimeout(_lastReadTime)      ((millis() - _lastReadTime) > 40)
 
 // Singleton instance of the radio driver
 RH_RF95 driver;
@@ -26,8 +26,8 @@ void checkRadio() {
 
     if (driver.available()) {
         // Dont put this on the stack:
-        uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
-        uint8_t len = sizeof(buf);
+        uint8_t len = 255;
+        uint8_t buf[len];
         // Wait for a message addressed to us from the transmitter
         if (driver.recv(buf, &len))
         {
