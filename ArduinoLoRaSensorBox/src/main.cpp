@@ -138,9 +138,12 @@ void reset() {
     readings.reset();
 }
 
+// boolean zeros = false;
+
 void sendData() {
 
     Serial.println(F("sending data"));
+
     readings.data.floatNormalizer = FLOAT_NORMALIZER;
 
     readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
@@ -158,10 +161,18 @@ void sendData() {
     readings.data.lightResistance = lightSensor.getResistance();
 
     readings.data.loudness = soundSensor.getLoudness();
+    readings.print();
 
     uint8_t len = readings.size();
     uint8_t data[len];
     readings.serialize(data);
+
+    // dummy data
+    // uint8_t len = 8;
+    // uint8_t data[len];
+    // memset(data, zeros ? 0 : 1, len);
+    // zeros = !zeros;
+
     com_sendMessage(data, len);
 
     reset();
@@ -265,6 +276,7 @@ void com_sendOutgoingData(uint8_t * ptr, uint8_t length) {
 }
 
 void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) {
+    Serial.println("com_processValidMessage()");
     // data from aggregator to this instance
     radio.handle_message(payload, payloadLength);
 }
