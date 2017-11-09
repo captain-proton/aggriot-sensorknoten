@@ -48,8 +48,9 @@ void clearInput() {
 void readInput() {
     uint8_t available = Serial.available();
     if (available > 0) {
-        Serial.readBytes(input, available);
-        inputLen += available;
+        uint8_t b = Serial.read();
+        input[inputLen] = b;
+        inputLen++;
         lastReadTime = millis();
     }
 }
