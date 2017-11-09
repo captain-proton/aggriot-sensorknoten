@@ -15,7 +15,7 @@ Nachrichtenaufbau:
 	 - Payload-Typ		1 Byte
 	 - Payload-Data		n ≥ 3 Byte
 	}
- - Payload-CRC			32 Bit (Payload-Typ und Payload-Data)
+    - Payload-CRC			32 Bit (Payload-Typ und Payload-Data)
 }
 - CRC16 2 Byte (Startbyte bis Payload-CRC inklusive)
 
