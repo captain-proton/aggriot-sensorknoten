@@ -283,8 +283,32 @@ void sendData() {
     reset();
 }
 
+/**
+* Creates and sets random handshake data onto the radio that the next handshake uses.
+*/
+void setupRandomHandshakeData() {
+
+    // if analog input pin 3 is unconnected, random analog
+    // noise will cause the call to randomSeed() to generate
+    // different seed numbers each time the sketch runs.
+    // randomSeed() will then shuffle the random function.
+    randomSeed(analogRead(3));
+
+    uint8_t payloadTypeIdx = random(HandshakeData.PayloadLen);
+    for (uint8_t i = 1; i < HandshakeData.PayloadLen; i++) {
+        HandshakeData.Payload[i] = i == payloadTypeIdx
+        ? PayloadTypeHandshake
+        : random(0, 255);
+    }
+    radio.setHandshakeData(HandshakeData.Payload,
+        &(HandshakeData.PayloadLen),
+        &(HandshakeData.PayloadType),
+        &(HandshakeData.PayloadTypeIdx));
+    }
+
 void handshake() {
     if (!radio.isConnected()) {
+        setupRandomHandshakeData();
         radio.handshake();
     } else {
         tHandshake.disable();
@@ -307,23 +331,6 @@ void setup()
     } else {
         return;
     }
-
-    // if analog input pin 3 is unconnected, random analog
-    // noise will cause the call to randomSeed() to generate
-    // different seed numbers each time the sketch runs.
-    // randomSeed() will then shuffle the random function.
-    randomSeed(analogRead(3));
-
-    uint8_t payloadTypeIdx = random(HandshakeData.PayloadLen);
-    for (uint8_t i = 1; i < HandshakeData.PayloadLen; i++) {
-        HandshakeData.Payload[i] = i == payloadTypeIdx
-            ? PayloadTypeHandshake
-            : random(0, 255);
-    }
-    radio.setHandshakeData(HandshakeData.Payload,
-                            &(HandshakeData.PayloadLen),
-                            &(HandshakeData.PayloadType),
-                            &(HandshakeData.PayloadTypeIdx));
 
     dustCalculator.init();
 
