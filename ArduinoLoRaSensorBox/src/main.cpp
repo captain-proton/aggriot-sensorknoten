@@ -8,8 +8,11 @@
  * \msc
  * arcgradient = 4;
  * Main,Dust,Sender,Scheduler,aggriotlib,Network,Receiver,Aggregator;
+ * --- [label="main::setup()"];
  * Main => Dust [label="init()", URL="\ref DustCalculator::init()"];
  * Main => Scheduler [label="init()"];
+ * Main => aggriotlib [label="communication_init(address)"];
+ * Main => aggriotlib [label="aes_init(key, keylen)"];
  * --- [label="main::loop()"];
  * Main => Scheduler [label="execute()"];
  * Scheduler => Main [label="handshake()"];
@@ -18,11 +21,14 @@
  * Main => Sender [label="isConnected()"];
  * Sender >> Main [label="true|false"];
  * Main abox Sender [label="not connected", textbgcolor="#ef5350"];
+ * Main => Main [label="setupRandomHandshakeData()"];
  * Main => Sender [label="handshake()", URL="\ref Radio::handshake()"];
  * Main => Sender [label="isConnected()", URL="\ref Radio::isConnected()"];
  * Sender >> Main [label="true|false"];
  * Main abox Sender [label="handshake failed", textbgcolor="#ff7043"];
- * Main => Main [label="createRandomHandshakeData()"];
+ * Main => Main [label="setupRandomHandshakeData()"];
+ * Main => Sender [label="handshake()", URL="\ref Radio::handshake()"];
+ * Main => Sender [label="isConnected()", URL="\ref Radio::isConnected()"];
  * Main abox Sender [label="connected", textbgcolor="#66bb6a"];
  * Main => Dust [label="getConcentration()", URL="\ref DustCalculator::getConcentration()"];
  * Dust >> Main [label="concentration (float)"];
