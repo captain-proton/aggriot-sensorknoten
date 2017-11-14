@@ -41,17 +41,23 @@ public:
     bool isConnected();
     /**
      * To run a handshake, handshake data must be set.
-     * @param handshakePayload     handshake payload
-     * @param handshakeLen         payload length
-     * @param handshakePayloadType payload type
+     * @param handshakePayload        handshake payload
+     * @param handshakeLen            payload length
+     * @param handshakePayloadType    payload type
+     * @param handshakePayloadTypeIdx index of payload type inside the index
      */
-    void setHandshakeData(uint8_t *handshakePayload, uint8_t *handshakeLen, uint8_t *handshakePayloadType);
+    void setHandshakeData(uint8_t *handshakePayload,
+        uint8_t *handshakeLen,
+        uint8_t *handshakePayloadType,
+        uint8_t *handshakePayloadTypeIdx
+    );
 private:
     uint8_t _address;
     RH_RF95 *_driver;
     bool _isConnected;
     uint8_t *_handshakePayload;
     uint8_t *_handshakePayloadType;
+    uint8_t *_handshakePayloadTypeIdx;
     uint8_t *_handshakeLen;
 };
 

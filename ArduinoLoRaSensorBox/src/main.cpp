@@ -198,6 +198,7 @@ struct {
     uint8_t Payload[8];
     uint8_t PayloadType = PayloadTypeHandshake;
     uint8_t PayloadLen = sizeof(Payload);
+    uint8_t PayloadTypeIdx;
 } HandshakeData;
 
 /** Data container that is delivered over the network */
@@ -313,10 +314,16 @@ void setup()
     // randomSeed() will then shuffle the random function.
     randomSeed(analogRead(3));
 
-    for (uint8_t i = 1; i < sizeof(HandshakeData.PayloadLen); i++) {
-        HandshakeData.Payload[i] = random(0, 255);
+    uint8_t payloadTypeIdx = random(HandshakeData.PayloadLen);
+    for (uint8_t i = 1; i < HandshakeData.PayloadLen; i++) {
+        HandshakeData.Payload[i] = i == payloadTypeIdx
+            ? PayloadTypeHandshake
+            : random(0, 255);
     }
-    radio.setHandshakeData(HandshakeData.Payload, &(HandshakeData.PayloadLen), &(HandshakeData.PayloadType));
+    radio.setHandshakeData(HandshakeData.Payload,
+                            &(HandshakeData.PayloadLen),
+                            &(HandshakeData.PayloadType),
+                            &(HandshakeData.PayloadTypeIdx));
 
     dustCalculator.init();
 
@@ -391,7 +398,6 @@ void com_sendOutgoingData(uint8_t * ptr, uint8_t length) {
  * @param payloadLength length of the payload
  */
 void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) {
-    Serial.println("com_processValidMessage()");
     // data from aggregator to this instance
     radio.handle_message(payload, payloadLength);
 }

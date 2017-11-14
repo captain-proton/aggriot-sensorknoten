@@ -63,12 +63,13 @@ void Radio::loop() {
 
 void Radio::handle_message(uint8_t * dataPtr, uint8_t len)
 {
+    Serial.println("Radio::handle_message");
     Serial.write(dataPtr, len);
 
     if (!_isConnected
         && len > 0
         && len == *_handshakeLen
-        && dataPtr[0] == *_handshakePayloadType)
+        && dataPtr[*_handshakePayloadTypeIdx] == *_handshakePayloadType)
     {
         bool b = true;
         for (uint8_t i = 0; i < len; i++) {
@@ -85,9 +86,13 @@ void Radio::handle_message(uint8_t * dataPtr, uint8_t len)
     }
 }
 
-void Radio::setHandshakeData(uint8_t *handshakePayload, uint8_t *handshakeLen, uint8_t *handshakePayloadType) {
+void Radio::setHandshakeData(uint8_t *handshakePayload,
+    uint8_t *handshakeLen,
+    uint8_t *handshakePayloadType,
+    uint8_t *handshakePayloadTypeIdx) {
 
     _handshakePayload = handshakePayload;
     _handshakeLen = handshakeLen;
     _handshakePayloadType = handshakePayloadType;
+    _handshakePayloadTypeIdx = handshakePayloadTypeIdx;
 }
