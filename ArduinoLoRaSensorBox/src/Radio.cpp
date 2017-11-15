@@ -42,7 +42,8 @@ void Radio::retry() {
 }
 
 void Radio::handshake() {
-    send(_handshakePayload, *_handshakeLen);
+    Serial.println(F("Radio::handshake()"));
+    com_sendMessage(_handshakePayload, *_handshakeLen);
 }
 
 bool Radio::isConnected() {
@@ -64,7 +65,6 @@ void Radio::loop() {
 void Radio::handle_message(uint8_t * dataPtr, uint8_t len)
 {
     Serial.println("Radio::handle_message");
-    Serial.write(dataPtr, len);
 
     if (!_isConnected
         && len > 0

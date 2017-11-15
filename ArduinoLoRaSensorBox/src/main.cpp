@@ -82,25 +82,33 @@ extern "C" {
 // #define _TASK_SLEEP_ON_IDLE_RUN
 
 /** Defines the interval in milliseconds after new messages should be send */
-#define SEND_DELAY_MS           5000L
+#define SEND_DELAY_MS               5000L
 
 /** Defines the interval in milliseconds after an unsuccessful handshake should be executed again */
-#define HANDSHAKE_DELAY_MS      300000L
+#define HANDSHAKE_DELAY_MS          300000L
+
+/** Minimum size of payload used on handshake */
+#define MIN_HANDSHAKE_PAYLOAD_LEN   8
+
+/** Maximum size of payload used on handshake */
+#define MAX_HANDSHAKE_PAYLOAD_LEN   16
 
 /** Default interval when sensor data is measured */
-#define DEFAULT_SENSOR_INTERVAL 1000
+#define DEFAULT_SENSOR_INTERVAL     1000
 
 /** Time dust values are measured */
-#define DUST_MEASURING_TIME     20000L
+#define DUST_MEASURING_TIME         20000L
 
 /** How many values must at least be read to get the median from dust measurement */
-#define DUST_MIN_MEDIAN_COUNT   5
+#define DUST_MIN_MEDIAN_COUNT       5
 
 /** Max values that are measured on dust sensor */
-#define DUST_MEDIAN_CAPACITY    10
+#define DUST_MEDIAN_CAPACITY        10
 
 /** When data is send on the radio, float values are normalized so that values can be recalculated with floating points. */
-#define FLOAT_NORMALIZER        100
+#define FLOAT_NORMALIZER            100
+
+#define DIVIDER                     F("-------------------------\n")
 
 /**
  * Instance with which tasks are executed on specific intervals
@@ -152,6 +160,8 @@ void readLight();
 void sendData();
 /** Task callback when a handshake should be done. */
 void handshake();
+/** Task callback to check if a handshake was successful. */
+void checkConnection();
 
 /** Task wrapper that calls loop() of sensors that just read one single value and do not depend on multiple calls as for example dust calculation */
 Task taskWrapper(DEFAULT_SENSOR_INTERVAL, TASK_FOREVER, &runSensorRecord);
@@ -167,6 +177,8 @@ Task tSendData(SEND_DELAY_MS, TASK_FOREVER, &sendData);
 
 /** Task that is going to run a handshake. */
 Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, &handshake);
+/** Task that checks if a connection was successfully intiated. */
+Task tCheckConnection(TASK_IMMEDIATE, TASK_FOREVER, &checkConnection);
 
 /* SENSORS */
 /** Instance with which dust data can be calculated */
@@ -201,7 +213,7 @@ Radio radio(&driver);
  * @param Payload random data.
  */
 struct {
-    uint8_t Payload[8];
+    uint8_t Payload[MAX_HANDSHAKE_PAYLOAD_LEN];
     uint8_t PayloadType = PayloadTypeHandshake;
     uint8_t PayloadLen = sizeof(Payload);
     uint8_t PayloadTypeIdx;
@@ -253,7 +265,12 @@ void reset() {
  */
 void sendData() {
 
-    Serial.println(F("sending data"));
+    Serial.println(DIVIDER);
+    Serial.println(F("main::sendData()"));
+    if (!radio.isConnected()) {
+        Serial.println(F("Not connected -> do not send data, returning"));
+        return;
+    }
 
     readings.data.floatNormalizer = FLOAT_NORMALIZER;
 
@@ -273,6 +290,7 @@ void sendData() {
 
     readings.data.loudness = soundSensor.getLoudness();
     readings.print();
+    Serial.println(DIVIDER);
 
     uint8_t len = readings.size();
     uint8_t data[len];
@@ -294,17 +312,24 @@ void sendData() {
 */
 void setupRandomHandshakeData() {
 
+    Serial.println(F("main::setupRandomHandshakeData()"));
+
     // if analog input pin 3 is unconnected, random analog
     // noise will cause the call to randomSeed() to generate
     // different seed numbers each time the sketch runs.
     // randomSeed() will then shuffle the random function.
     randomSeed(analogRead(3));
 
+    uint8_t payloadLen = random(MIN_HANDSHAKE_PAYLOAD_LEN, MAX_HANDSHAKE_PAYLOAD_LEN + 1);
+    HandshakeData.PayloadLen = payloadLen;
+
     uint8_t payloadTypeIdx = random(HandshakeData.PayloadLen);
-    for (uint8_t i = 1; i < HandshakeData.PayloadLen; i++) {
+    HandshakeData.PayloadTypeIdx = payloadTypeIdx;
+
+    for (uint8_t i = 0; i < HandshakeData.PayloadLen; i++) {
         HandshakeData.Payload[i] = i == payloadTypeIdx
-        ? PayloadTypeHandshake
-        : random(0, 255);
+            ? PayloadTypeHandshake
+            : random(0, 256);
     }
     radio.setHandshakeData(HandshakeData.Payload,
         &(HandshakeData.PayloadLen),
@@ -314,10 +339,23 @@ void setupRandomHandshakeData() {
 
 void handshake() {
     if (!radio.isConnected()) {
+        Serial.println(F("main::handshake() - Not connected -> init handshake"));
         setupRandomHandshakeData();
         radio.handshake();
-    } else {
+    }
+}
+
+void checkConnection() {
+    if (radio.isConnected()) {
+
+        Serial.println(F("main::checkConnection() - Connected -> disabling handshake, enable data send"));
+
         tHandshake.disable();
+        tCheckConnection.disable();
+
+        scheduler.addTask(tSendData);
+        tSendData.enable();
+        Serial.println(F("Enabled data send"));
     }
 }
 
@@ -363,9 +401,9 @@ void setup()
     tHandshake.enable();
     Serial.println(F("Enabled radio handshake"));
 
-    scheduler.addTask(tSendData);
-    tSendData.enableDelayed(SEND_DELAY_MS);
-    Serial.println(F("Enabled data send"));
+    scheduler.addTask(tCheckConnection);
+    tCheckConnection.enable();
+    Serial.println(F("Enabled connection check"));
 
     communication_init(0x11223344);
     uint8_t key[] = {0xAB, 0xCD, 0xEF, 0x91,
