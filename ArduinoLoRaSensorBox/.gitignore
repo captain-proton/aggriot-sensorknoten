@@ -6,3 +6,6 @@
 
 # Generated docs
 doc/html/*
+
+# Ctags
+tags
