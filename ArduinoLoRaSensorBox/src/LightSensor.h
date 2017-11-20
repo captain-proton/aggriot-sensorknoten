@@ -25,7 +25,7 @@ private:
     uint8_t _pin;
     float _raw;
     float _rsensor;
-    uint32_t _n;
+    uint8_t _n;
 };
 
 #endif

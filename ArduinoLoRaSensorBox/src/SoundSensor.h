@@ -22,7 +22,7 @@ public:
 private:
     uint8_t _pin;
     float _loudness;
-    uint32_t _n;
+    uint8_t _n;
 };
 
 #endif

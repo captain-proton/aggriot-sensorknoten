@@ -35,7 +35,7 @@ private:
     dht *_dht;
     float _humidity;
     float _temperature;
-    uint32_t _n;
+    uint8_t _n;
     uint8_t _errors;
 };
 

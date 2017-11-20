@@ -28,7 +28,7 @@ public:
      * Call this method on main program loop to measure data
      * @return `true` if one value was calculated, `false` otherwise
      */
-    boolean loop();
+    void loop();
     /**
      * Check if a value can be retrieved with `DustCalculator::getConcentration`.
      * @return `true` if median can be returned.

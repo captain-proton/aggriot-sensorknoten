@@ -64,15 +64,33 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <RH_RF95.h>
-#include <RHReliableDatagram.h>
 #include <TaskScheduler.h>
 
-#include "DustCalculator.h"
 #include "Radio.h"
-#include "TemperatureHumiditySensor.h"
-#include "LightSensor.h"
-#include "SoundSensor.h"
 #include "SensorReadings.h"
+#ifdef DUST
+    #include "DustCalculator.h"
+
+    /** Time dust values are measured */
+    #define DUST_MEASURING_TIME         20000L
+
+    /** How many values must at least be read to get the median from dust measurement */
+    #define DUST_MIN_MEDIAN_COUNT       5
+
+    /** Max values that are measured on dust sensor */
+    #define DUST_MEDIAN_CAPACITY        10
+#endif
+
+#ifdef TEMP_HUM
+    #include "TemperatureHumiditySensor.h"
+#endif
+
+#ifdef LIGHT
+    #include "LightSensor.h"
+#endif
+#ifdef SOUND
+    #include "SoundSensor.h"
+#endif
 
 extern "C" {
     #include "communication.h"
@@ -95,15 +113,6 @@ extern "C" {
 
 /** Default interval when sensor data is measured */
 #define DEFAULT_SENSOR_INTERVAL     1000
-
-/** Time dust values are measured */
-#define DUST_MEASURING_TIME         20000L
-
-/** How many values must at least be read to get the median from dust measurement */
-#define DUST_MIN_MEDIAN_COUNT       5
-
-/** Max values that are measured on dust sensor */
-#define DUST_MEDIAN_CAPACITY        10
 
 /** When data is send on the radio, float values are normalized so that values can be recalculated with floating points. */
 #define FLOAT_NORMALIZER            100
@@ -150,12 +159,6 @@ Scheduler scheduler;
 /** Task callback when standard sensor measurements are going to be executed. */
 void runSensorRecord();
 
-/** Task callback when temperature and humidity data is read. */
-void readWeather();
-/** Task callback when sound data is read. */
-void readSound();
-/** Task callback when light data is read. */
-void readLight();
 /** Task callback when sensor data should be send. */
 void sendData();
 /** Task callback when a handshake should be done. */
@@ -164,13 +167,7 @@ void handshake();
 void checkConnection();
 
 /** Task wrapper that calls loop() of sensors that just read one single value and do not depend on multiple calls as for example dust calculation */
-Task taskWrapper(DEFAULT_SENSOR_INTERVAL, TASK_FOREVER, &runSensorRecord);
-/** Task that runs reading of temperature and humidity data */
-Task tWeather(TASK_IMMEDIATE, TASK_ONCE, &readWeather);
-/** Task that runs reading of sound data */
-Task tSound(TASK_IMMEDIATE, TASK_ONCE, &readSound);
-/** Task that runs reading of light data */
-Task tLight(TASK_IMMEDIATE, TASK_ONCE, &readLight);
+Task tSensors(DEFAULT_SENSOR_INTERVAL, TASK_FOREVER, &runSensorRecord);
 
 /** Task that is going to send data on a interval. */
 Task tSendData(SEND_DELAY_MS, TASK_FOREVER, &sendData);
@@ -181,14 +178,23 @@ Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, &handshake);
 Task tCheckConnection(TASK_IMMEDIATE, TASK_FOREVER, &checkConnection);
 
 /* SENSORS */
-/** Instance with which dust data can be calculated */
-DustCalculator dustCalculator(DUST_MEASURING_TIME, 8, DUST_MIN_MEDIAN_COUNT, DUST_MEDIAN_CAPACITY);
-/** Instance with which temperature and humidity can be calculated */
-TemperatureHumiditySensor tempSensor(A0);
-/** Instance with which light can be calculated */
-LightSensor lightSensor(A1);
-/** Instance with which sound can be calculated */
-SoundSensor soundSensor(A2);
+
+#ifdef DUST
+    /** Instance with which dust data can be calculated */
+    DustCalculator dustCalculator(DUST_MEASURING_TIME, DUST, DUST_MIN_MEDIAN_COUNT, DUST_MEDIAN_CAPACITY);
+#endif
+#ifdef TEMP_HUM
+    /** Instance with which temperature and humidity can be calculated */
+    TemperatureHumiditySensor tempSensor(TEMP_HUM);
+#endif
+#ifdef LIGHT
+    /** Instance with which light can be calculated */
+    LightSensor lightSensor(LIGHT);
+#endif
+#ifdef SOUND
+    /** Instance with which sound can be calculated */
+    SoundSensor soundSensor(SOUND);
+#endif
 
 /**
  * Every packet send to the aggregator contains the type so that the number of bytes and the order of data inside the packet is known.
@@ -224,41 +230,38 @@ SensorReadings readings;
 
 void runSensorRecord() {
 
-    tWeather.restart();
-    tLight.restart();
-    tSound.restart();
-}
-
-void readWeather()  {
-
-    tempSensor.loop();
-}
-
-void readLight() {
-
-    lightSensor.loop();
-}
-
-void readSound() {
-
-    soundSensor.loop();
+    #ifdef TEMP_HUM
+        tempSensor.loop();
+    #endif
+    #ifdef LIGHT
+        lightSensor.loop();
+    #endif
+    #ifdef SOUND
+        soundSensor.loop();
+    #endif
 }
 
 /**
  * Resets the measurement data of all sensors.
  */
 void reset() {
-    if (dustCalculator.isCalculated()) {
-        dustCalculator.reset();
-    }
-    tempSensor.reset();
-    lightSensor.reset();
-    soundSensor.reset();
+    #ifdef DUST
+        if (dustCalculator.isCalculated()) {
+            dustCalculator.reset();
+        }
+    #endif
+    #ifdef TEMP_HUM
+        tempSensor.reset();
+    #endif
+    #ifdef LIGHT
+        lightSensor.reset();
+    #endif
+    #ifdef SOUND
+        soundSensor.reset();
+    #endif
 
     readings.reset();
 }
-
-// boolean zeros = false;
 
 /**
  * Creates a \ref SensorReadings object that is going to be serialized and send via radio.
@@ -267,16 +270,15 @@ void sendData() {
 
     Serial.println(DIVIDER);
     Serial.println(F("main::sendData()"));
-    if (!radio.isConnected()) {
-        Serial.println(F("Not connected -> do not send data, returning"));
-        return;
-    }
 
     readings.data.floatNormalizer = FLOAT_NORMALIZER;
 
-    readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
-    readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
+    #ifdef TEMP_HUM
+        readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
+        readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
+    #endif
 
+    #ifdef DUST
     if (dustCalculator.isCalculated()) {
         readings.data.dustConcentration_f = (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer);
         readings.data.payloadType = PayloadTypeFull;
@@ -284,27 +286,30 @@ void sendData() {
         readings.data.dustConcentration_f = 0;
         readings.data.payloadType = PayloadTypeSmall;
     }
+    #endif
 
-    readings.data.lightSensorValue = lightSensor.getSensorData();
-    readings.data.lightResistance = lightSensor.getResistance();
+    #ifdef LIGHT
+        readings.data.lightSensorValue = lightSensor.getSensorData();
+        readings.data.lightResistance = lightSensor.getResistance();
+    #endif
 
-    readings.data.loudness = soundSensor.getLoudness();
+    #ifdef SOUND
+        readings.data.loudness = soundSensor.getLoudness();
+    #endif
+
     readings.print();
     Serial.println(DIVIDER);
 
     uint8_t len = readings.size();
     uint8_t data[len];
     readings.serialize(data);
-
-    // dummy data
-    // uint8_t len = 8;
-    // uint8_t data[len];
-    // memset(data, zeros ? 0 : 1, len);
-    // zeros = !zeros;
-
-    com_sendMessage(data, len);
-
     reset();
+
+    if (radio.isConnected()) {
+        Serial.println(F("Not connected -> do not send data, returning"));
+        com_sendMessage(data, len);
+    }
+
 }
 
 /**
@@ -376,26 +381,19 @@ void setup()
         return;
     }
 
-    dustCalculator.init();
+    #ifdef DUST
+        dustCalculator.init();
+    #endif
+    #ifdef TEMP_HUM
+    tempSensor.init();
+    #endif
 
     scheduler.init();
     Serial.println(F("Initialized scheduler"));
 
-    scheduler.addTask(taskWrapper);
-    taskWrapper.enable();
-
-    scheduler.addTask(tWeather);
-    tempSensor.init();
-    tWeather.enable();
-    Serial.println(F("Enabled weather sensor"));
-
-    scheduler.addTask(tSound);
-    tSound.enable();
-    Serial.println(F("Enabled sound sensor"));
-
-    scheduler.addTask(tLight);
-    tLight.enable();
-    Serial.println(F("Enabled light sensor"));
+    scheduler.addTask(tSensors);
+    tSensors.enable();
+    Serial.println(F("Enabled sensor readings task"));
 
     scheduler.addTask(tHandshake);
     tHandshake.enable();
@@ -405,12 +403,16 @@ void setup()
     tCheckConnection.enable();
     Serial.println(F("Enabled connection check"));
 
-    communication_init(0x11223344);
-    uint8_t key[] = {0xAB, 0xCD, 0xEF, 0x91,
-        0x34, 0xEF, 0xAB, 0xCD,
-        0xEF, 0x91, 0x34, 0xEF,
-        0xAB, 0xCD, 0xEF, 0x91};
-    aes_init(&key[0], 16);
+    #ifdef ADDRESS
+        communication_init(ADDRESS);
+    #endif
+    #ifdef PRE_SHARED_KEY
+        #ifdef PSK_LEN
+            uint8_t key[PSK_LEN];
+            memcpy(key, PRE_SHARED_KEY, PSK_LEN);
+            aes_init(&key[0], PSK_LEN);
+        #endif
+    #endif
 }
 
 /// called after setup(). loops consecutively. there is not guarantee that
@@ -421,7 +423,9 @@ void loop()
 
     radio.loop();
 
-    dustCalculator.loop();
+    #ifdef DUST
+        dustCalculator.loop();
+    #endif
 
     communication_poll();
 }

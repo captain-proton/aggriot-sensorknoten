@@ -22,7 +22,7 @@ float DustCalculator::getConcentration() {
     return _median->getMedian();
 }
 
-boolean DustCalculator::loop() {
+void DustCalculator::loop() {
 
     // how long the pin had a low pulse block until it got HIGH (microseconds!)
     _duration = pulseIn(_srcPin, LOW);
@@ -44,9 +44,7 @@ boolean DustCalculator::loop() {
         // reset values to start sampling again
         _lowPulseOccupancy = 0;
         _startTime = millis();
-        return true;
     }
-    return false;
 }
 
 boolean DustCalculator::isCalculated() {
