@@ -10,18 +10,36 @@ typedef struct {
 
     /** payload/message type that an aggregator uses to read a message */
     uint8_t payloadType;
-    /** normalized temperature (temp * floatNormalizer) \ref TemperatureHumiditySensor */
-    uint16_t temperature_f;
-    /** normalized humidity (humidity * floatNormalizer) \ref TemperatureHumiditySensor */
-    uint16_t humidity_f;
-    /** normalized dust concentration (conc * floatNormalizer) from \ref DustCalculator */
-    uint32_t dustConcentration_f;
-    /** Raw value of light sensor \ref LightSensor */
-    uint16_t lightSensorValue;
-    /** Calculated resistance value from \ref LightSensor */
-    uint16_t lightResistance;
-    /** Loudness calculated in \ref SoundSensor */
-    uint16_t loudness;
+    #ifdef DUST
+        /** normalized dust concentration (conc * floatNormalizer) from \ref DustCalculator */
+        uint32_t dustConcentration_f;
+    #endif
+    #if defined(TEMP_HUM) || defined(BARO)
+        /** normalized temperature (temp * floatNormalizer) \ref TemperatureHumiditySensor */
+        uint16_t temperature_f;
+    #endif
+    #ifdef TEMP_HUM
+        /** normalized humidity (humidity * floatNormalizer) */
+        uint8_t humidity_f;
+    #endif
+    #ifdef BARO
+        /** normalized pressure in Pa */
+        uint32_t pressure;
+    #endif
+    #ifdef LIGHT
+        /** Raw value of light sensor \ref LightSensor */
+        uint16_t lightSensorValue;
+        /** Calculated resistance value from \ref LightSensor */
+        uint16_t lightResistance;
+    #endif
+    #ifdef SOUND
+        /** Loudness calculated in \ref SoundSensor */
+        uint16_t loudness;
+    #endif
+    #ifdef GPS
+        int32_t longitude;
+        int32_t latitude;
+    #endif
     /** Value to denormalize sensor data */
     uint8_t floatNormalizer;
 } SensorData;

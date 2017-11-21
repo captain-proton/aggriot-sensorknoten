@@ -80,7 +80,6 @@
     /** Max values that are measured on dust sensor */
     #define DUST_MEDIAN_CAPACITY        10
 #endif
-
 #ifdef TEMP_HUM
     #include "TemperatureHumiditySensor.h"
 #endif
@@ -90,6 +89,12 @@
 #endif
 #ifdef SOUND
     #include "SoundSensor.h"
+#endif
+#ifdef BARO
+    #include "BarometerSensor.h"
+#endif
+#ifdef GPS
+    #include "GPSSensor.h"
 #endif
 
 extern "C" {
@@ -195,14 +200,23 @@ Task tCheckConnection(TASK_IMMEDIATE, TASK_FOREVER, &checkConnection);
     /** Instance with which sound can be calculated */
     SoundSensor soundSensor(SOUND);
 #endif
+#ifdef BARO
+    BarometerSensor baroSensor;
+#endif
+#ifdef GPS
+    TinyGPS tinyGPS;
+    SoftwareSerial sose(3, 4);
+    GPSSensor gps(&tinyGPS, &sose);
+#endif
 
 /**
  * Every packet send to the aggregator contains the type so that the number of bytes and the order of data inside the packet is known.
  */
 enum PayloadType {
-    PayloadTypeFull = 1,
-    PayloadTypeSmall,
-    PayloadTypeHandshake
+    PayloadTypeOfficeFull = 1,
+    PayloadTypeOfficeSmall,
+    PayloadTypeHandshake,
+    PayloadTypeMobile
 };
 
 /* Transmission via LoRa */
@@ -239,6 +253,9 @@ void runSensorRecord() {
     #ifdef SOUND
         soundSensor.loop();
     #endif
+    #ifdef BARO
+        baroSensor.loop();
+    #endif
 }
 
 /**
@@ -259,6 +276,9 @@ void reset() {
     #ifdef SOUND
         soundSensor.reset();
     #endif
+    #ifdef BARO
+        baroSensor.reset();
+    #endif
 
     readings.reset();
 }
@@ -277,24 +297,31 @@ void sendData() {
         readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
         readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
     #endif
-
     #ifdef DUST
     if (dustCalculator.isCalculated()) {
         readings.data.dustConcentration_f = (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer);
-        readings.data.payloadType = PayloadTypeFull;
+        readings.data.payloadType = PayloadTypeOfficeFull;
     } else {
         readings.data.dustConcentration_f = 0;
-        readings.data.payloadType = PayloadTypeSmall;
+        readings.data.payloadType = PayloadTypeOfficeSmall;
     }
     #endif
-
     #ifdef LIGHT
         readings.data.lightSensorValue = lightSensor.getSensorData();
         readings.data.lightResistance = lightSensor.getResistance();
     #endif
-
     #ifdef SOUND
         readings.data.loudness = soundSensor.getLoudness();
+    #endif
+    #ifdef BARO
+        readings.data.temperature_f = (uint16_t) (baroSensor.getTemperature() * FLOAT_NORMALIZER);
+        readings.data.pressure = (uint32_t) (baroSensor.getPressure());
+    #endif
+    #ifdef GPS
+        gps.calculatePosition();
+        readings.data.longitude = gps.getLongitude();
+        readings.data.latitude = gps.getLatitude();
+        readings.data.payloadType = PayloadTypeMobile;
     #endif
 
     readings.print();
@@ -385,7 +412,14 @@ void setup()
         dustCalculator.init();
     #endif
     #ifdef TEMP_HUM
-    tempSensor.init();
+        tempSensor.init();
+    #endif
+    #ifdef BARO
+        baroSensor.init();
+    #endif
+    #ifdef GPS
+        gps.init();
+        Serial.println(F("GPS initialized"));
     #endif
 
     scheduler.init();
@@ -403,14 +437,14 @@ void setup()
     tCheckConnection.enable();
     Serial.println(F("Enabled connection check"));
 
+
     #ifdef ADDRESS
         communication_init(ADDRESS);
     #endif
     #ifdef PRE_SHARED_KEY
         #ifdef PSK_LEN
-            uint8_t key[PSK_LEN];
-            memcpy(key, PRE_SHARED_KEY, PSK_LEN);
-            aes_init(&key[0], PSK_LEN);
+            uint8_t psk[PSK_LEN] = { PRE_SHARED_KEY };
+            aes_init(&psk[0], PSK_LEN);
         #endif
     #endif
 }
@@ -421,11 +455,14 @@ void loop()
 {
     scheduler.execute();
 
-    radio.loop();
-
-    #ifdef DUST
-        dustCalculator.loop();
+    #ifdef GPS
+        gps.loop();
     #endif
+    #ifdef DUST
+    dustCalculator.loop();
+    #endif
+
+    radio.loop();
 
     communication_poll();
 }

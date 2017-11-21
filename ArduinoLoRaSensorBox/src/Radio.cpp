@@ -34,7 +34,6 @@ void Radio::send(uint8_t *data, uint8_t len) {
     } else {
         Serial.println(F("sendtoWait failed"));
     }
-    delay(20);
 }
 
 void Radio::retry() {
