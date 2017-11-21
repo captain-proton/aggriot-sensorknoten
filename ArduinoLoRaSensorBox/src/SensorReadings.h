@@ -20,7 +20,7 @@ typedef struct {
     #endif
     #ifdef TEMP_HUM
         /** normalized humidity (humidity * floatNormalizer) */
-        uint8_t humidity_f;
+        uint16_t humidity_f;
     #endif
     #ifdef BARO
         /** normalized pressure in Pa */
