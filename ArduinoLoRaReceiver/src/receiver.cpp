@@ -79,6 +79,7 @@ void setup() {
 
     if (!driver.init()) {
         Serial.println(F("Init failed"));
+        driver.setTxPower(20);
     } else {
         driver.setFrequency(433);
     }

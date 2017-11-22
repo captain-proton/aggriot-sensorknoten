@@ -404,6 +404,7 @@ void setup()
 
     if (driver.init()) {
         driver.setFrequency(433);
+        driver.setTxPower(20);
     } else {
         return;
     }
