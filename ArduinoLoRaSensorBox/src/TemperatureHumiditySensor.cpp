@@ -61,6 +61,8 @@ void TemperatureHumiditySensor::print() {
 
 void TemperatureHumiditySensor::reset() {
     _n = 0;
+    _humidity = 0;
+    _temperature = 0;
 }
 
 float TemperatureHumiditySensor::getHumidity() {

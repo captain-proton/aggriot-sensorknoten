@@ -30,16 +30,16 @@ void SensorReadings::serialize(uint8_t *dst) {
         dst[idx++] = data.lightResistance >> 8;
     #endif
 
-    #ifdef SOUND
+    #if defined(SOUND) || defined(LOUDNESS)
         dst[idx++] = data.loudness;
         dst[idx++] = data.loudness >> 8;
     #endif
 
     #ifdef BARO
-        dst[idx++] = data.pressure;
-        dst[idx++] = data.pressure >> 8;
-        dst[idx++] = data.pressure >> 16;
-        dst[idx++] = data.pressure >> 24;
+        dst[idx++] = data.pressure_f;
+        dst[idx++] = data.pressure_f >> 8;
+        dst[idx++] = data.pressure_f >> 16;
+        dst[idx++] = data.pressure_f >> 24;
     #endif
     #ifdef GPS
         dst[idx++] = data.longitude;
@@ -52,6 +52,9 @@ void SensorReadings::serialize(uint8_t *dst) {
         dst[idx++] = data.latitude >> 16;
         dst[idx++] = data.latitude >> 24;
     #endif
+    #ifdef PIR
+        dst[idx++] = data.isPeopleDetected ? 1 : 0;
+    #endif
     dst[idx++] = data.floatNormalizer;
 }
 
@@ -61,7 +64,7 @@ void SensorReadings::deserialize(uint8_t *src, uint8_t size)
 
     data.payloadType = src[idx++];
 
-    #if defined(TEMP_HUM) || defined(BARO)
+    #if defined(TEMP_HUM) || defined(BARO) || defined(TEMPERATURE)
         data.temperature_f = src[idx++];
         data.temperature_f |= src[idx++] << 8;
     #endif
@@ -85,16 +88,16 @@ void SensorReadings::deserialize(uint8_t *src, uint8_t size)
         data.lightResistance |= src[idx++] << 8;
     #endif
 
-    #ifdef SOUND
+    #if defined(SOUND) || defined(LOUDNESS)
         data.loudness = src[idx++];
         data.loudness |= src[idx++] << 8;
     #endif
 
     #ifdef BARO
-        data.pressure = src[idx++];
-        data.pressure |= src[idx++] << 8;
-        data.pressure |= ((uint32_t) src[idx++]) << 16;
-        data.pressure |= ((uint32_t) src[idx++]) << 24;
+        data.pressure_f = src[idx++];
+        data.pressure_f |= src[idx++] << 8;
+        data.pressure_f |= ((uint32_t) src[idx++]) << 16;
+        data.pressure_f |= ((uint32_t) src[idx++]) << 24;
     #endif
     #ifdef GPS
         data.longitude = src[idx++];
@@ -107,25 +110,28 @@ void SensorReadings::deserialize(uint8_t *src, uint8_t size)
         data.latitude |= ((int32_t) src[idx++]) << 16;
         data.latitude |= ((int32_t) src[idx++]) << 24;
     #endif
+    #ifdef PIR
+        data.isPeopleDetected = src[idx++];
+    #endif
     data.floatNormalizer = src[idx++];
 }
 
 void SensorReadings::reset() {
     data.payloadType = 0;
-    #if defined(TEMP_HUM) || defined(BARO)
+    #if defined(TEMP_HUM) || defined(BARO) || defined(TEMPERATURE)
         data.temperature_f = 0.0;
     #endif
     #ifdef TEMP_HUM
         data.humidity_f = 0.0;
     #endif
     #ifdef BARO
-        data.pressure = 0;
+        data.pressure_f = 0;
     #endif
     #ifdef LIGHT
         data.lightSensorValue = 0;
         data.lightResistance = 0;
     #endif
-    #ifdef SOUND
+    #if defined(SOUND) || defined(LOUDNESS)
         data.loudness = 0;
     #endif
     #ifdef DUST
@@ -134,6 +140,9 @@ void SensorReadings::reset() {
     #ifdef GPS
         data.longitude = 0;
         data.latitude = 0;
+    #endif
+    #ifdef PIR
+        data.isPeopleDetected = false;
     #endif
     data.floatNormalizer = 0;
 }
@@ -147,13 +156,13 @@ void SensorReadings::print() {
             ? 1
             : data.floatNormalizer;
 
-    #if defined(TEMP_HUM) || defined(BARO)
+    #if defined(TEMP_HUM) || defined(BARO) || defined(TEMPERATURE)
         Serial.print(F("Temperature (*C): "));
         Serial.println(data.temperature_f * 1.0 / normalizer);
     #endif
     #ifdef BARO
         Serial.print(F("Pressure (Pa): "));
-        Serial.println(data.pressure * 1.0 / normalizer);
+        Serial.println(data.pressure_f * 1.0 / normalizer);
     #endif
     #ifdef TEMP_HUM
         Serial.print(F("Humidity (%): "));
@@ -169,7 +178,7 @@ void SensorReadings::print() {
         Serial.print(F("Light (resistance): "));
         Serial.println(data.lightResistance);
     #endif
-    #ifdef SOUND
+    #if defined(SOUND) || defined(LOUDNESS)
         Serial.print(F("Loudness: "));
         Serial.println(data.loudness);
     #endif
@@ -178,5 +187,9 @@ void SensorReadings::print() {
         Serial.println(data.longitude);
         Serial.print(F("Latitude: "));
         Serial.println(data.latitude);
+    #endif
+    #ifdef PIR
+        Serial.print(F("People detected: "));
+        Serial.println(data.isPeopleDetected);
     #endif
 }

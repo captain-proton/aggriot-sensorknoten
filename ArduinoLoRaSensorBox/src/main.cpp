@@ -83,18 +83,26 @@
 #ifdef TEMP_HUM
     #include "TemperatureHumiditySensor.h"
 #endif
-
+#ifdef TEMPERATURE
+    #include "TemperatureSensor.h"
+#endif
 #ifdef LIGHT
     #include "LightSensor.h"
 #endif
 #ifdef SOUND
     #include "SoundSensor.h"
 #endif
+#ifdef LOUDNESS
+    #include "LoudnessSensor.h"
+#endif
 #ifdef BARO
     #include "BarometerSensor.h"
 #endif
 #ifdef GPS
     #include "GPSSensor.h"
+#endif
+#ifdef PIR
+    #include "PIRMotionSensor.h"
 #endif
 
 extern "C" {
@@ -179,8 +187,6 @@ Task tSendData(SEND_DELAY_MS, TASK_FOREVER, &sendData);
 
 /** Task that is going to run a handshake. */
 Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, &handshake);
-/** Task that checks if a connection was successfully intiated. */
-Task tCheckConnection(TASK_IMMEDIATE, TASK_FOREVER, &checkConnection);
 
 /* SENSORS */
 
@@ -192,6 +198,10 @@ Task tCheckConnection(TASK_IMMEDIATE, TASK_FOREVER, &checkConnection);
     /** Instance with which temperature and humidity can be calculated */
     TemperatureHumiditySensor tempSensor(TEMP_HUM);
 #endif
+#ifdef TEMPERATURE
+    /** Instance with which temperature can be calculated */
+    TemperatureSensor temperatureSensor(TEMPERATURE);
+#endif
 #ifdef LIGHT
     /** Instance with which light can be calculated */
     LightSensor lightSensor(LIGHT);
@@ -200,13 +210,21 @@ Task tCheckConnection(TASK_IMMEDIATE, TASK_FOREVER, &checkConnection);
     /** Instance with which sound can be calculated */
     SoundSensor soundSensor(SOUND);
 #endif
+#ifdef LOUDNESS
+    /** Instance with which loudness can be calculated */
+    LoudnessSensor loudnessSensor(LOUDNESS);
+#endif
 #ifdef BARO
-    BarometerSensor baroSensor;
+    BMP280 bmp280;
+    BarometerSensor baroSensor(&bmp280);
 #endif
 #ifdef GPS
     TinyGPS tinyGPS;
     SoftwareSerial sose(3, 4);
     GPSSensor gps(&tinyGPS, &sose);
+#endif
+#ifdef PIR
+    PIRMotionSensor pirSensor(PIR);
 #endif
 
 /**
@@ -239,13 +257,13 @@ struct {
     uint8_t PayloadTypeIdx;
 } HandshakeData;
 
-/** Data container that is delivered over the network */
-SensorReadings readings;
-
 void runSensorRecord() {
 
     #ifdef TEMP_HUM
         tempSensor.loop();
+    #endif
+    #ifdef TEMPERATURE
+        temperatureSensor.loop();
     #endif
     #ifdef LIGHT
         lightSensor.loop();
@@ -253,8 +271,14 @@ void runSensorRecord() {
     #ifdef SOUND
         soundSensor.loop();
     #endif
+    #ifdef LOUDNESS
+        loudnessSensor.loop();
+    #endif
     #ifdef BARO
         baroSensor.loop();
+    #endif
+    #ifdef PIR
+        pirSensor.loop();
     #endif
 }
 
@@ -270,17 +294,24 @@ void reset() {
     #ifdef TEMP_HUM
         tempSensor.reset();
     #endif
+    #ifdef TEMPERATURE
+        temperatureSensor.reset();
+    #endif
     #ifdef LIGHT
         lightSensor.reset();
     #endif
     #ifdef SOUND
         soundSensor.reset();
     #endif
+    #ifdef LOUDNESS
+        loudnessSensor.reset();
+    #endif
     #ifdef BARO
         baroSensor.reset();
     #endif
-
-    readings.reset();
+    #ifdef PIR
+        pirSensor.reset();
+    #endif
 }
 
 /**
@@ -291,11 +322,17 @@ void sendData() {
     Serial.println(DIVIDER);
     Serial.println(F("main::sendData()"));
 
+    /** Data container that is delivered over the network */
+    SensorReadings readings;
+
     readings.data.floatNormalizer = FLOAT_NORMALIZER;
 
     #ifdef TEMP_HUM
         readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
         readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
+    #endif
+    #ifdef TEMPERATURE
+        readings.data.temperature_f = (uint16_t) (temperatureSensor.getTemperature() * readings.data.floatNormalizer);
     #endif
     #ifdef DUST
     if (dustCalculator.isCalculated()) {
@@ -310,18 +347,23 @@ void sendData() {
         readings.data.lightSensorValue = lightSensor.getSensorData();
         readings.data.lightResistance = lightSensor.getResistance();
     #endif
-    #ifdef SOUND
+    #ifdef LOUDNESS
+        readings.data.loudness = loudnessSensor.getLoudness();
+    #elif defined(SOUND)
         readings.data.loudness = soundSensor.getLoudness();
     #endif
     #ifdef BARO
         readings.data.temperature_f = (uint16_t) (baroSensor.getTemperature() * FLOAT_NORMALIZER);
-        readings.data.pressure = (uint32_t) (baroSensor.getPressure());
+        readings.data.pressure_f = (uint32_t) (baroSensor.getPressure() * FLOAT_NORMALIZER);
     #endif
     #ifdef GPS
         gps.calculatePosition();
         readings.data.longitude = gps.getLongitude();
         readings.data.latitude = gps.getLatitude();
         readings.data.payloadType = PayloadTypeMobile;
+    #endif
+    #ifdef PIR
+        readings.data.isPeopleDetected = pirSensor.isPeopleDetected();
     #endif
 
     readings.print();
@@ -333,10 +375,8 @@ void sendData() {
     reset();
 
     if (radio.isConnected()) {
-        Serial.println(F("Not connected -> do not send data, returning"));
         com_sendMessage(data, len);
     }
-
 }
 
 /**
@@ -372,12 +412,14 @@ void handshake() {
 }
 
 void checkConnection() {
-    if (radio.isConnected()) {
+    if (radio.isConnected()
+        && tHandshake.isEnabled()
+        && !tSendData.isEnabled())
+    {
 
         Serial.println(F("main::checkConnection() - Connected -> disabling handshake, enable data send"));
 
         tHandshake.disable();
-        tCheckConnection.disable();
 
         scheduler.addTask(tSendData);
         tSendData.enable();
@@ -416,6 +458,12 @@ void setup()
         gps.init();
         Serial.println(F("GPS initialized"));
     #endif
+    #ifdef LED
+        pinMode(LED, OUTPUT);
+    #endif
+    #ifdef PIR
+        pirSensor.init();
+    #endif
 
     scheduler.init();
     Serial.println(F("Initialized scheduler"));
@@ -427,11 +475,6 @@ void setup()
     scheduler.addTask(tHandshake);
     tHandshake.enable();
     Serial.println(F("Enabled radio handshake"));
-
-    scheduler.addTask(tCheckConnection);
-    tCheckConnection.enable();
-    Serial.println(F("Enabled connection check"));
-
 
     #ifdef ADDRESS
         communication_init(ADDRESS);
@@ -454,8 +497,10 @@ void loop()
         gps.loop();
     #endif
     #ifdef DUST
-    dustCalculator.loop();
+        dustCalculator.loop();
     #endif
+
+    checkConnection();
 
     radio.loop();
 
@@ -500,5 +545,9 @@ void com_messageTimeout() {
 * Callback method used by aggriotlib when a packet was acked
 */
 void com_messageAcked() {
-    // is mir equal
+    #ifdef LED
+        digitalWrite(LED, HIGH);
+        delay(10);
+        digitalWrite(LED, LOW);
+    #endif
 }

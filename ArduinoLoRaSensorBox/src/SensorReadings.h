@@ -14,7 +14,7 @@ typedef struct {
         /** normalized dust concentration (conc * floatNormalizer) from \ref DustCalculator */
         uint32_t dustConcentration_f;
     #endif
-    #if defined(TEMP_HUM) || defined(BARO)
+    #if defined(TEMP_HUM) || defined(BARO) || defined(TEMPERATURE)
         /** normalized temperature (temp * floatNormalizer) \ref TemperatureHumiditySensor */
         uint16_t temperature_f;
     #endif
@@ -24,7 +24,7 @@ typedef struct {
     #endif
     #ifdef BARO
         /** normalized pressure in Pa */
-        uint32_t pressure;
+        uint32_t pressure_f;
     #endif
     #ifdef LIGHT
         /** Raw value of light sensor \ref LightSensor */
@@ -32,13 +32,16 @@ typedef struct {
         /** Calculated resistance value from \ref LightSensor */
         uint16_t lightResistance;
     #endif
-    #ifdef SOUND
+    #if defined(SOUND) || defined(LOUDNESS)
         /** Loudness calculated in \ref SoundSensor */
         uint16_t loudness;
     #endif
     #ifdef GPS
         int32_t longitude;
         int32_t latitude;
+    #endif
+    #ifdef PIR
+        bool isPeopleDetected;
     #endif
     /** Value to denormalize sensor data */
     uint8_t floatNormalizer;

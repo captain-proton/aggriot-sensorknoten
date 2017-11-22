@@ -3,8 +3,6 @@
 
 LightSensor::LightSensor(uint8_t pin) {
     _pin = pin;
-    _raw = 0.0;
-    _rsensor = 0.0;
     reset();
 }
 
@@ -29,6 +27,8 @@ void LightSensor::print() {
 
 void LightSensor::reset() {
 
+    _raw = 0.0;
+    _rsensor = 0.0;
     _n = 0;
 }
 

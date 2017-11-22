@@ -9,17 +9,18 @@
  */
 class BarometerSensor {
 public:
+    BarometerSensor(BMP280 * bmp280);
     void init();
     void loop();
     void reset();
     float getTemperature();
-    uint32_t getPressure();
+    float getPressure();
     float getAltitude();
 private:
     BMP280 *_bmp280;
     uint8_t _n;
     float _temperature;
-    uint32_t _pressure;
+    float _pressure;
 };
 
 #endif

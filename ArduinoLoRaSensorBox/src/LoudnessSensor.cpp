@@ -26,6 +26,7 @@ void LoudnessSensor::loop() {
 
 void LoudnessSensor::reset() {
     _n = 0;
+    _loudness = 0;
 }
 
 uint16_t LoudnessSensor::getLoudness() {
