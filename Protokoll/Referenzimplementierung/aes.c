@@ -27,6 +27,10 @@ uint8_t expandedEncryptionKey[EXPANDED_KEY_SIZE];
 uint8_t expandedDecryptionKey[EXPANDED_KEY_SIZE];
 #endif
 
+#ifdef _AVR_IO_H_
+#define printf(x, ...)
+#endif
+
 void aes_setKey(const uint8_t* thiskey, uint8_t len) {
 	// The key that is passed to this function is buffered in the AESkeyBuffer
 	// so if the same key is passed again the expanded keys don't have to be
@@ -43,7 +47,6 @@ void aes_setKey(const uint8_t* thiskey, uint8_t len) {
 	}
 	printf("\n");
 	keyPtr = thiskey;
-#warning NOT ON AVR: AES not included!
 #endif
 }
 
@@ -126,3 +129,50 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 	} while (++blockNumber);
 }
 
+void aes_mac_calculate(uint8_t * outputBuffer, uint16_t outputLength, uint8_t * toMAC, uint16_t macDataLen) {
+	uint8_t buffer[BLOCK_SIZE];
+	uint8_t i = BLOCK_SIZE;
+	
+	// Zero out buffer:
+	while (i--)
+		buffer[i] = 0;
+	
+	// First two bytes are length of data:
+	*((uint16_t*)&buffer[0]) = macDataLen;
+	
+	// Start inserting data at position 2 (0 and 1 are used for data length)
+	i = 2;
+	printf("MAC data: ");
+	while (macDataLen) {
+		for (;i<BLOCK_SIZE;i++) {
+			if (!macDataLen--) {
+				macDataLen = 0;
+				break;
+			}
+			printf("%.2x ", *toMAC);
+			// XOR new data into buffer:
+			buffer[i] ^= *toMAC++;
+		}
+		// Encrypt data block:
+#ifdef _AVR_IO_H_
+		// Encrypt using AES-C:
+		aes_encrypt((uint8_t*)&buffer[0], &expandedEncryptionKey[0]);
+#else
+		if (keyPtr) {
+			AES_ECB_encrypt(&buffer[0], keyPtr, &buffer[0], BLOCK_SIZE);
+		} else {
+			printf("- no key known.\n");
+		}
+#endif
+    i = 0;
+	} // Next round - XOR in more bytes
+	printf("\n");
+	
+	// Copy result:
+	printf("AES MAC: ");
+	for (i=0;i<outputLength;i++) {
+		printf("%.2x ", buffer[i]);
+		outputBuffer[i] = buffer[i];
+	}
+	printf("\n");
+}

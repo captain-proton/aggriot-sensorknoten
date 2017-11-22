@@ -169,6 +169,25 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 								if ((mHdr->sensorAddress == myAddress) || (currentRole == ROLE_AGGREGATOR)) {
 									printf("   That's me!\n");
 									
+#ifdef USE_MAC									
+									// Versuchen die Nachricht zu entschlüsseln:
+									aes_cryptPayload(&messageData[0], max(cmdlen, MIN_DATA_SIZE), mHdr->sensorAddress, mHdr->sequenceNumber, mHdr->flags & FLAG_A_TO_S); // 1 = Incoming message
+									
+									uint8_t MAC_buffer[MAC_SIZE];
+									
+									// MAC über komplette Nachricht berechnen (bis auf den MAC selber und die CRC16):
+									aes_mac_calculate(&MAC_buffer[0], MAC_SIZE, &recvData[0], sizeof(MessageHeader) + max(cmdlen, MIN_DATA_SIZE));
+									
+									uint8_t isValid = 1;
+									for (i=0;i<MAC_SIZE;i++) {
+										if (mFtr->MAC[i] != MAC_buffer[i]) {
+											isValid = 0;
+											break;
+										}
+									}
+									
+									if (isValid) {
+#else									
 									// Versuchen die Nachricht zu entschlüsseln:
 									aes_cryptPayload(&messageData[0], max(cmdlen, MIN_DATA_SIZE)+CRC32LEN, mHdr->sensorAddress, mHdr->sequenceNumber, mHdr->flags & FLAG_A_TO_S); // 1 = Incoming message
 									
@@ -183,6 +202,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 									
 									// Ist korrekt ver/entschlüsselt (und übertragen) worden?
 									if (calculatedCRC == mFtr->payloadCRC) {
+#endif
 										printf("   Valid encryption.\n");
 										// Nachricht verarbeiten:
 										com_messageReceived(mHdr, &messageData[0], cmdlen);
@@ -275,7 +295,19 @@ void communication_sendCommand(uint32_t nodeAddress, uint8_t* data, uint8_t data
 	uint8_t * ptrA = dataPtr;
 	uint8_t len = max(data_len, MIN_DATA_SIZE);		// Gesamtlänge der Daten, mit Padding
 	uint8_t bytesLeft = data_len;									// Länge der zu kopierenden Daten. Nur unterschiedlich wenn Länge < MIN_DATA_SIZE
+
+#ifdef USE_MAC
 	
+	while (bytesLeft--)
+		*ptrA++ = *data++;																						// Daten in den Ausgangspuffer kopieren
+	
+	// MAC über komplette Nachricht in place berechnen (bis auf den MAC selber und die CRC16):
+	aes_mac_calculate(&mFtr->MAC[0], MAC_SIZE, &msgBuffer[0], sizeof(MessageHeader) + len);
+  
+	// Daten in place verschlüsseln:
+	aes_cryptPayload(dataPtr, max(data_len, MIN_DATA_SIZE), mHdr->sensorAddress, useSequenceNumber, mHdr->flags & FLAG_A_TO_S);
+	
+#else
 	printf("Create CRC32: ");
 	mFtr->payloadCRC = CRC32START;								// Startwert für CRC
 	// So lange wir Datenbytes haben..
@@ -286,13 +318,14 @@ void communication_sendCommand(uint32_t nodeAddress, uint8_t* data, uint8_t data
 		*ptrA++ = *data++;																						// und in Ausgangspuffer kopieren
 	}
 	printf("\n");
-
+	
 	// Über die Nutzdaten hinaus gehende Bytes mit einrechnen (0-Padding)
 	while (len--)
 		mFtr->payloadCRC = crc_calcCRC32r(mFtr->payloadCRC, 0);
 	
 	// Daten in place verschlüsseln:
 	aes_cryptPayload(dataPtr, max(data_len, MIN_DATA_SIZE)+CRC32LEN, mHdr->sensorAddress, useSequenceNumber, mHdr->flags & FLAG_A_TO_S);
+#endif
 	
 	// Gesamt-Prüfsumme berechnen:
 	mFtr->messageCRC = CRC16START;
@@ -506,6 +539,16 @@ int main() {
 	for (i=0;i<3000;i++) {
 		communication_poll();
 	}
+	
+	printf("Nachrichtensimulation:\n");
+
+	currentRole = ROLE_AGGREGATOR;
+	currentSequenceNumber = simSeqNum = 0;
+	
+	//uint8_t testdata[] = {0xF9, 0x00, 0x0C, 0x44, 0x33, 0x22, 0x11, 0x3E, 0x00, 0x00, 0x00, 0x70, 0x5E, 0x1C, 0x2F, 0xA9, 0xD2, 0x64, 0x54, 0x35, 0x81, 0x8D, 0xD9, 0x76, 0x26, 0x14, 0x83, 0xAF, 0x67 };
+	//communication_dataIn(&testdata[0], sizeof(testdata));
+	//communication_poll();
+	
 }
 
 #endif

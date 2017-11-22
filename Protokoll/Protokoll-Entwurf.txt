@@ -1,4 +1,4 @@
-Nachrichtencodierung Little Endian. (Bei x86/64 und ARM sollte das am einfachsten sein).
+﻿Nachrichtencodierung Little Endian. (Bei x86/64 und ARM sollte das am einfachsten sein).
 
 Nachrichtenaufbau:
 - StartByte 1 Byte
@@ -54,3 +54,34 @@ Bei 50 kBit/sec schaffen wir 271 Paket pro Sekunde (maximal, da der Zigbee-Heade
 Wir brauchen 2^31 Versuche zum imitieren eines Pakets. Das dauert 91 Tage. Im besten Fall ist allerdings die
 Sequenznummer dann durch neue Nachrichten (mindestens eine Nachricht pro Tag?) eh durch..
 Damit hätten wir allerdings noch keinen zu einem ACK passenden gültigen Content.
+
+
+=============================
+ÄNDERUNG MIT MAC statt CRC32:
+=============================
+- Payload-CRC wird 8 Byte lang.
+- Statt der CRC32 wird ein AES-CBC-MAC benutzt (siehe unten). Es werden die bereits verschlüsselten Paketdaten benutzt
+  (Header incl. Startbyte bis Ende des min 4-Byte-Blocks/Payloads). Der zuvor mit einbezogene CRC32-Block wird nicht mehr
+  verschlüsselt!
+- AES-CBC-MAC wird wie folgt implementiert:
+  - Puffer von 16 Byte wird mit 0 initialisiert
+  - Die ersten zwei Bytes werden mit der Länge der zu MACenden Daten initialisiert (little endian)
+  - Für jedes weitere zu MAC-ende Byte wird der Puffer (in der ersten Runde beginnend mit Position 2, sonst ab Position 0)
+    mit dem Puffer ver-XOR-ed.
+  - Wenn der Puffer voll ist (sowie am Ende falls noch nicht-verschlüsselte Daten enthalten sind) wird er mit dem PSK verschlüsselt
+
+Pseudocode:
+  Puffer(16 Byte) = '000..000'
+  Puffer[0,1] = len(Eingangsdaten)
+
+  i=2; // In der ersten Runde bei Position 2 anfangen
+  while (mehr Eingangsdaten) {
+    for (;i<16;i++) {
+      puffer[i] = puffer[i] XOR Eingangsdatenbyte
+      if (!mehrDaten)
+        break;
+    }
+    aes_encrypt(puffer, psk)
+  }
+  Puffer[0..n] Bytes als MAC benutzen
+

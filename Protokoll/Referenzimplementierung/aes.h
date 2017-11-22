@@ -18,6 +18,7 @@
 void aes_init(const uint8_t * key, uint8_t len);
 void aes_setKey(const uint8_t* thiskey, uint8_t len);
 void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorAddress, uint32_t sequenceNumber, uint8_t isIncoming);
+void aes_mac_calculate(uint8_t * outputBuffer, uint16_t outputLength, uint8_t * toMAC, uint16_t macDataLen);
 
 #define EXPANDED_KEY_SIZE		176
 #define KEY_SIZE						16

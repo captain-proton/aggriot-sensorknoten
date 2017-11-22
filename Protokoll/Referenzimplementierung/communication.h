@@ -5,19 +5,6 @@
 
 #include <stdint.h>
 
-typedef struct __attribute__((packed)) {
-	uint8_t sync;
-	uint8_t flags;
-	uint8_t payloadLength;
-	uint32_t sensorAddress;
-	uint32_t sequenceNumber;
-} MessageHeader;
-
-typedef struct __attribute__((packed)) {
-	uint32_t payloadCRC;
-	uint16_t messageCRC;
-} MessageFooter;
-
 #define SYNCBYTE									249
 #define BITS_VERSION_0						0b00
 #define BIT_A_TO_S								1
@@ -33,6 +20,26 @@ typedef struct __attribute__((packed)) {
 #define CRC32MASK									0x04c11db7
 #define CRC16START								0xffff
 #define CRC32START								0xffffffff
+#define MAC_SIZE									8
+#define USE_MAC
+//#undef  USE_MAC
+
+typedef struct __attribute__((packed)) {
+	uint8_t sync;
+	uint8_t flags;
+	uint8_t payloadLength;
+	uint32_t sensorAddress;
+	uint32_t sequenceNumber;
+} MessageHeader;
+
+typedef struct __attribute__((packed)) {
+#ifdef USE_MAC
+	uint8_t MAC[MAC_SIZE];
+#else
+	uint32_t payloadCRC;
+#endif
+	uint16_t messageCRC;
+} MessageFooter;
 
 
 
