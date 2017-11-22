@@ -355,18 +355,12 @@ void setupRandomHandshakeData() {
     uint8_t payloadLen = random(MIN_HANDSHAKE_PAYLOAD_LEN, MAX_HANDSHAKE_PAYLOAD_LEN + 1);
     HandshakeData.PayloadLen = payloadLen;
 
-    uint8_t payloadTypeIdx = random(HandshakeData.PayloadLen);
-    HandshakeData.PayloadTypeIdx = payloadTypeIdx;
-
     for (uint8_t i = 0; i < HandshakeData.PayloadLen; i++) {
-        HandshakeData.Payload[i] = i == payloadTypeIdx
-            ? PayloadTypeHandshake
-            : random(0, 256);
+        HandshakeData.Payload[i] = random(0, 256);
     }
     radio.setHandshakeData(HandshakeData.Payload,
         &(HandshakeData.PayloadLen),
-        &(HandshakeData.PayloadType),
-        &(HandshakeData.PayloadTypeIdx));
+        &(HandshakeData.PayloadType));
     }
 
 void handshake() {

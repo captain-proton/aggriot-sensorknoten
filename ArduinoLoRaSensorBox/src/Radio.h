@@ -48,8 +48,7 @@ public:
      */
     void setHandshakeData(uint8_t *handshakePayload,
         uint8_t *handshakeLen,
-        uint8_t *handshakePayloadType,
-        uint8_t *handshakePayloadTypeIdx
+        uint8_t *handshakePayloadType
     );
 private:
     uint8_t _address;
@@ -57,8 +56,9 @@ private:
     bool _isConnected;
     uint8_t *_handshakePayload;
     uint8_t *_handshakePayloadType;
-    uint8_t *_handshakePayloadTypeIdx;
     uint8_t *_handshakeLen;
+
+    void highlightHandshake();
 };
 
 #endif
