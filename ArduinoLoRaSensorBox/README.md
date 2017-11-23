@@ -2,16 +2,21 @@
 
 ## Overview and hardware setup ##
 
-The sensor box is build upon an Arduino Uno that uses various sensors to read environment data and broadcasts them via LoRaWAN. The hardware setup is fairly strict at the moment. On top of the arduino the lora shield ([Dragino LoRa](http://wiki.dragino.com/index.php?title=Lora_Shield)) is placed, with the [groove base shield](https://www.seeedstudio.com/Base-Shield-V2-p-1378.html). All sensors are connected to the shield on the ports:
+Any used sensor box is build upon an Arduino Uno that uses various sensors to read environment data and broadcasts them via LoRaWAN. On top of the arduino the lora shield ([Dragino LoRa](http://wiki.dragino.com/index.php?title=Lora_Shield)) is placed, with the [groove base shield](https://www.seeedstudio.com/Base-Shield-V2-p-1378.html). The shields can be stacked in any order. There are implementations various sensors. The sensors can be activated with preprocessor instructions inside the `platform.ini`.
 
-| Sensor | Port |
-| ------ | ---- |
-| Dust | D8 |
-| Sound | A2 |
-| Light | A1 |
-| Temp and Humidity | A0 |
+| Sensor | `CPPDEFINES` |
+| ------ | ------------ |
+| Dust | `DUST=8` |
+| Sound | `SOUND=A<number>` |
+| Loudness | `LOUDNESS=A<number>` |
+| Light | `LIGHT=A<number>` |
+| Temperature and Humidity | `TEMP_HUM=A<number>` |
+| Temperature | `TEMPERATURE=A<number>` |
+| Barometer | `BARO` |
+| PIR Motion | `PIR=<number>` |
+| GPS | `GPS` |
 
-Remove jumper `DIO5` of the lora shield, otherwise communication between the dust sensor and the arduino can not function.
+Warning! GPS and Dust sensor can not work simultaneously, as the gps sensor block communication on digital pin 8, which is needed by the dust sensor. If you are using the standard dragino lora shield (without gps) remove jumper `DIO5`, otherwise communication between the dust sensor and the arduino can not function.
 
 ## Measuring ##
 
@@ -20,9 +25,13 @@ For each sensor, there is one class that provides measurement of sensor data. Al
 | Sensor | Port | Unit |
 | ------ | ---- | ---- |
 | Dust | Median | pcs/0.01cf (particles per 0.01 cubic feet) |
-| Sound | Mean | - |
+| Sound/Loudness | Mean | - |
 | Light | Mean | trend of the intensity of light NOT! lumen |
-| Temp and Humidity | Mean | °C and % |
+| Temp | Mean | °C |
+| Humidity | Mean | % |
+| Pressure | Mean | Pa |
+| GPS | - | Last read longitude and latitude |
+| PIR | - | `true` or `false` if motion was detected inside the measurement cycle |
 
 The median can not be used for sound, light, temperature and humidity as to much memory is used!
 
@@ -46,10 +55,14 @@ To deliver sensor data, a handshake is done with the aggregator. If it is succes
 > cd Sensorknoten/ArduinoLoRaSensorBox
 
 # Build and upload
-> platformio run --target upload
+> platformio run --environment uno_box_office_node_1 --target upload
 
 # Enter the upload port if more than one device is connected
-> platformio run --target upload --upload-port [/dev/...]
+> platformio run --environment uno_box_office_node_1 --target upload --upload-port [/dev/...]
+
+# There may be an error on build, if any library is missing and was not automatically loaded
+# These libraries must be installed
+> platformio lib install <id>
 
 # Monitor device
 > platformio device monitor
