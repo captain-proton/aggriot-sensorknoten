@@ -4,6 +4,14 @@
 #include <Arduino.h>
 
 /**
+ * Every packet send to the aggregator contains the type so that the number of bytes and the order of data inside the packet is known.
+ */
+enum PayloadType {
+    PayloadTypeOffice = 1,
+    PayloadTypeMobile = 2
+};
+
+/**
  * Container struct that stores sensor data. These values are not kept inside the sensor readings class so no errors occur when calculating sizes of packet data (`sizeof(SensorData)`).
  */
 typedef struct {
@@ -15,7 +23,9 @@ typedef struct {
         uint32_t dustConcentration_f;
     #endif
     #if defined(TEMP_HUM) || defined(BARO) || defined(TEMPERATURE)
-        /** normalized temperature (temp * floatNormalizer) \ref TemperatureHumiditySensor */
+        // true if temperature is positive, false otherwise
+        bool isTemperaturePositive;
+        /** normalized temperature (temp * floatNormalizer) */
         uint16_t temperature_f;
     #endif
     #ifdef TEMP_HUM
@@ -72,6 +82,10 @@ public:
     void reset();
     /** Print instance data onto the serial output */
     void print();
+private:
+    void serialize(uint32_t value, uint8_t * dst, uint8_t * idx, uint8_t size);
+    void serializePayloadOffice(uint8_t * dst, uint8_t * idx);
+    void serializePayloadMobile(uint8_t * dst, uint8_t * idx);
 };
 
 #endif

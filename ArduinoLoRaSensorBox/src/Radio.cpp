@@ -46,7 +46,7 @@ void Radio::handshake() {
 }
 
 bool Radio::isConnected() {
-    return _isConnected;
+    return true;//_isConnected;
 }
 
 void Radio::loop() {

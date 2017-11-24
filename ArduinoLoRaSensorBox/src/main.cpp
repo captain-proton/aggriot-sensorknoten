@@ -227,16 +227,6 @@ Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, &handshake);
     PIRMotionSensor pirSensor(PIR);
 #endif
 
-/**
- * Every packet send to the aggregator contains the type so that the number of bytes and the order of data inside the packet is known.
- */
-enum PayloadType {
-    PayloadTypeOfficeFull = 1,
-    PayloadTypeOfficeSmall,
-    PayloadTypeHandshake,
-    PayloadTypeMobile
-};
-
 /* Transmission via LoRa */
 /** Driver instance with which data is send onto the network */
 RH_RF95 driver;
@@ -252,9 +242,8 @@ Radio radio(&driver);
  */
 struct {
     uint8_t Payload[MAX_HANDSHAKE_PAYLOAD_LEN];
-    uint8_t PayloadType = PayloadTypeHandshake;
+    uint8_t PayloadType = HANDSHAKE_PAYLOAD_TYPE;
     uint8_t PayloadLen = sizeof(Payload);
-    uint8_t PayloadTypeIdx;
 } HandshakeData;
 
 void runSensorRecord() {
@@ -328,19 +317,21 @@ void sendData() {
     readings.data.floatNormalizer = FLOAT_NORMALIZER;
 
     #ifdef TEMP_HUM
-        readings.data.temperature_f = (uint16_t) (tempSensor.getTemperature() * readings.data.floatNormalizer);
+        float t = tempSensor.getTemperature();
+        readings.data.temperature_f = (uint16_t) (t * readings.data.floatNormalizer);
+        readings.data.isTemperaturePositive = t >= 0;
         readings.data.humidity_f = (uint16_t) (tempSensor.getHumidity() * readings.data.floatNormalizer);
     #endif
     #ifdef TEMPERATURE
+        float t = temperatureSensor.getTemperature();
         readings.data.temperature_f = (uint16_t) (temperatureSensor.getTemperature() * readings.data.floatNormalizer);
+        readings.data.isTemperaturePositive = t >= 0;
     #endif
     #ifdef DUST
     if (dustCalculator.isCalculated()) {
         readings.data.dustConcentration_f = (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer);
-        readings.data.payloadType = PayloadTypeOfficeFull;
     } else {
         readings.data.dustConcentration_f = 0;
-        readings.data.payloadType = PayloadTypeOfficeSmall;
     }
     #endif
     #ifdef LIGHT
@@ -360,7 +351,6 @@ void sendData() {
         gps.calculatePosition();
         readings.data.longitude = gps.getLongitude();
         readings.data.latitude = gps.getLatitude();
-        readings.data.payloadType = PayloadTypeMobile;
     #endif
     #ifdef PIR
         readings.data.isPeopleDetected = pirSensor.isPeopleDetected();
@@ -372,6 +362,7 @@ void sendData() {
     uint8_t len = readings.size();
     uint8_t data[len];
     readings.serialize(data);
+
     reset();
 
     if (radio.isConnected()) {
@@ -395,7 +386,8 @@ void setupRandomHandshakeData() {
     uint8_t payloadLen = random(MIN_HANDSHAKE_PAYLOAD_LEN, MAX_HANDSHAKE_PAYLOAD_LEN + 1);
     HandshakeData.PayloadLen = payloadLen;
 
-    for (uint8_t i = 0; i < HandshakeData.PayloadLen; i++) {
+    HandshakeData.Payload[0] = HANDSHAKE_PAYLOAD_TYPE;
+    for (uint8_t i = 1; i < HandshakeData.PayloadLen; i++) {
         HandshakeData.Payload[i] = random(0, 256);
     }
     radio.setHandshakeData(HandshakeData.Payload,

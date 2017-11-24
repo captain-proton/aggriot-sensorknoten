@@ -1,6 +1,8 @@
 #ifndef Radio_H
 #define Radio_H
 
+#define HANDSHAKE_PAYLOAD_TYPE      3
+
 #include <Arduino.h>
 #include <RH_RF95.h>
 
