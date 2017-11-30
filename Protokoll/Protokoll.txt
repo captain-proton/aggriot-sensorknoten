@@ -91,9 +91,9 @@ Damit hätten wir allerdings noch keinen zu einem ACK passenden gültigen Conten
 ÄNDERUNG MIT MAC statt CRC32:
 =============================
 - Payload-CRC wird 8 Byte lang.
-- Statt der CRC32 wird ein AES-CBC-MAC benutzt (siehe unten). Es werden die bereits verschlüsselten Paketdaten benutzt
-  (Header incl. Startbyte bis Ende des min 4-Byte-Blocks/Payloads). Der zuvor mit einbezogene CRC32-Block wird nicht mehr
-  verschlüsselt!
+- Statt der CRC32 wird ein AES-CBC-MAC benutzt (siehe unten). Es werden die unverschlüsselten Paketdaten benutzt
+  (Header incl. Startbyte bis Ende des min 4-Byte-Blocks/Payloads). Der zuvor mit einbezogene CRC32-Block (jetzt
+  8-Byte-MAC-Block) wird nicht mehr verschlüsselt!
 - AES-CBC-MAC wird wie folgt implementiert:
   - Puffer von 16 Byte wird mit 0 initialisiert
   - Die ersten zwei Bytes werden mit der Länge der zu MACenden Daten initialisiert (little endian)
@@ -115,7 +115,6 @@ Pseudocode:
     aes_encrypt(puffer, psk)
   }
   Puffer[0..n] Bytes als MAC benutzen
-
 
 
 
