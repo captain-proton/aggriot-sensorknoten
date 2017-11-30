@@ -23,9 +23,8 @@ Nachrichtenaufbau:
 
 Payloadtypen
 
-Payload: 1 (Büro)
+Payload: 1
 {
-    - Typ               1 Byte
     - Temperatur        2 Byte (normalisiert [0-5000])
     - Luftfeuchtigkeit  2 Byte (normalisiert [0-10000])
     - Staub             4 Byte (normalisiert [0-3000000])
@@ -36,9 +35,8 @@ Payload: 1 (Büro)
     - Normalisierer     1 Byte ([100])
 }
 
-Payload: 2 (Büro ohne Staub)
+Payload: 2
 {
-    - Typ               1 Byte
     - Temperatur        2 Byte (normalisiert [0-5000])
     - Luftfeuchtigkeit  2 Byte (normalisiert [0-10000])
     - Licht             2 Byte ([0-800])
@@ -50,13 +48,11 @@ Payload: 2 (Büro ohne Staub)
 
 Payload: 3 (Handshake)
 {
-    - Typ               1 Byte
-    - random            15 Byte
+    - random            16 Byte
 }
 
 Payload: 3 (Mobil)
 {
-    - Typ               1 Byte
     - Temperatur        2 Byte (normalisiert [0-5000])
     - Lautstärke        2 Byte ([20-400])
     - Druck             4 Byte (Pascal)
@@ -64,6 +60,7 @@ Payload: 3 (Mobil)
     - Breitengrad       4 Byte
     - Normalisierer     1 Byte ([100])
 }
+
 
 One-Time-Pad für Payload-Verschlüsselung pro 16-Byte-Datenblock der Nachricht:
 Upstream (S zu A):   aes128(psk, Sensoradresse (4 Byte) | Sequenznummer (4 Byte) | Block-NR + 128 (1 Byte) )
@@ -119,3 +116,21 @@ Pseudocode:
   }
   Puffer[0..n] Bytes als MAC benutzen
 
+
+
+
+
+
+Adressen der Knoten
+
+Adresse:    0x11223344
+PSK:        {0xAB,0xCD,0xEF,0x91,0x34,0xEF,0xAB,0xCD,0xEF,0x91,0x34,0xEF,0xAB,0xCD,0xEF,0x91}
+
+Adresse:    0xb6b2762e
+PSK:        {0x5b,0x42,0xc2,0x82,0xd1,0x89,0xc5,0x7c,0xe5,0xea,0x54,0x80,0x23,0xa6,0x92,0x2c}
+
+Adresse:    0xb1f4e3ab
+PSK:        {0x73,0x3a,0xbf,0xd6,0x52,0xf6,0xa8,0x85,0x1f,0x91,0x35,0xcc,0xb5,0x97,0x17,0x49}
+
+Adresse:    0xc9728acd
+PSK:        {0x3d,0xdc,0x57,0xcc,0x89,0x7c,0xb0,0x50,0x6c,0xd4,0x1a,0x89,0x77,0x65,0x87,0x56}
