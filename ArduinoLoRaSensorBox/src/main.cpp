@@ -330,8 +330,6 @@ void sendData() {
     #ifdef DUST
     if (dustCalculator.isCalculated()) {
         readings.data.dustConcentration_f = (uint32_t) (dustCalculator.getConcentration() * readings.data.floatNormalizer);
-    } else {
-        readings.data.dustConcentration_f = 0;
     }
     #endif
     #ifdef LIGHT

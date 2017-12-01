@@ -4,54 +4,40 @@
 #include <Arduino.h>
 
 /**
- * Every packet send to the aggregator contains the type so that the number of bytes and the order of data inside the packet is known.
- */
-enum PayloadType {
-    PayloadTypeOffice = 1,
-    PayloadTypeMobile = 2
-};
-
-/**
  * Container struct that stores sensor data. These values are not kept inside the sensor readings class so no errors occur when calculating sizes of packet data (`sizeof(SensorData)`).
  */
 typedef struct {
 
     /** payload/message type that an aggregator uses to read a message */
     uint8_t payloadType;
-    #ifdef DUST
-        /** normalized dust concentration (conc * floatNormalizer) from \ref DustCalculator */
-        uint32_t dustConcentration_f;
-    #endif
-    #if defined(TEMP_HUM) || defined(BARO) || defined(TEMPERATURE)
+    #ifdef PAYLOAD_OFFICE
         // true if temperature is positive, false otherwise
         bool isTemperaturePositive;
         /** normalized temperature (temp * floatNormalizer) */
         uint16_t temperature_f;
-    #endif
-    #ifdef TEMP_HUM
         /** normalized humidity (humidity * floatNormalizer) */
         uint16_t humidity_f;
-    #endif
-    #ifdef BARO
-        /** normalized pressure in Pa */
-        uint32_t pressure_f;
-    #endif
-    #ifdef LIGHT
-        /** Raw value of light sensor \ref LightSensor */
-        uint16_t lightSensorValue;
+        /** normalized dust concentration (conc * floatNormalizer) from \ref DustCalculator */
+        uint32_t dustConcentration_f;
         /** Calculated resistance value from \ref LightSensor */
         uint16_t lightResistance;
-    #endif
-    #if defined(SOUND) || defined(LOUDNESS)
+        /** Raw value of light sensor \ref LightSensor */
+        uint16_t lightSensorValue;
         /** Loudness calculated in \ref SoundSensor */
         uint16_t loudness;
-    #endif
-    #ifdef GPS
+        /** true if people where detected */
+        bool isPeopleDetected;
+    #elif PAYLOAD_MOBILE
+        // true if temperature is positive, false otherwise
+        bool isTemperaturePositive;
+        /** normalized temperature (temp * floatNormalizer) */
+        uint16_t temperature_f;
+        /** Loudness calculated in \ref SoundSensor */
+        uint16_t loudness;
+        /** normalized pressure in Pa */
+        uint32_t pressure_f;
         int32_t longitude;
         int32_t latitude;
-    #endif
-    #ifdef PIR
-        bool isPeopleDetected;
     #endif
     /** Value to denormalize sensor data */
     uint8_t floatNormalizer;
@@ -82,10 +68,6 @@ public:
     void reset();
     /** Print instance data onto the serial output */
     void print();
-private:
-    void serialize(uint32_t value, uint8_t * dst, uint8_t * idx, uint8_t size);
-    void serializePayloadOffice(uint8_t * dst, uint8_t * idx);
-    void serializePayloadMobile(uint8_t * dst, uint8_t * idx);
 };
 
 #endif
