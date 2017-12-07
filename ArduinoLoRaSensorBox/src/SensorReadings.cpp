@@ -1,31 +1,34 @@
 #include "SensorReadings.h"
 
-void SensorReadings::serialize(uint8_t *dst) {
-
+void SensorReadings::applyDefaults()
+{
     #ifdef PAYLOAD_OFFICE
-        data.payloadType = PAYLOAD_OFFICE;
+    data.payloadType = PAYLOAD_OFFICE;
 
-        // default values
-        data.isTemperaturePositive = true;
-        data.temperature_f = UINT16_MAX;
-        data.humidity_f = UINT16_MAX;
-        data.dustConcentration_f = UINT32_MAX;
-        data.lightResistance = UINT16_MAX;
-        data.lightSensorValue = UINT16_MAX;
-        data.loudness = UINT16_MAX;
-        data.isPeopleDetected = false;
+    // default values
+    data.isTemperaturePositive = true;
+    data.temperature_f = UINT16_MAX;
+    data.humidity_f = UINT16_MAX;
+    data.dustConcentration_f = UINT32_MAX;
+    data.lightResistance = UINT16_MAX;
+    data.lightSensorValue = UINT16_MAX;
+    data.loudness = UINT16_MAX;
+    data.isPeopleDetected = false;
     #elif PAYLOAD_MOBILE
-        data.payloadType = PAYLOAD_MOBILE;
+    data.payloadType = PAYLOAD_MOBILE;
 
-        // default values
-        data.isTemperaturePositive = true;
-        data.temperature_f = UINT16_MAX;
-        data.loudness = UINT16_MAX;
-        data.pressure_f = UINT32_MAX;
-        data.longitude = INT32_MAX;
-        data.latitude = INT32_MAX;
+    // default values
+    data.isTemperaturePositive = true;
+    data.temperature_f = UINT16_MAX;
+    data.loudness = UINT16_MAX;
+    data.pressure_f = UINT32_MAX;
+    data.longitude = INT32_MAX;
+    data.latitude = INT32_MAX;
     #endif
+}
 
+void SensorReadings::serialize(uint8_t *dst)
+{
     memcpy(dst, &data, size());
 }
 

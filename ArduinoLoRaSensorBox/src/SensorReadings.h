@@ -51,6 +51,8 @@ public:
     /** data container */
     SensorData data;
 
+    void applyDefaults();
+
     /**
      * Serialize data by the use of little endian.
      * @param dst destination to write to

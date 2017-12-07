@@ -313,7 +313,7 @@ void sendData() {
 
     /** Data container that is delivered over the network */
     SensorReadings readings;
-
+    readings.applyDefaults();
     readings.data.floatNormalizer = FLOAT_NORMALIZER;
 
     #ifdef TEMP_HUM
@@ -354,12 +354,12 @@ void sendData() {
         readings.data.isPeopleDetected = pirSensor.isPeopleDetected();
     #endif
 
-    readings.print();
-    Serial.println(DIVIDER);
-
     uint8_t len = readings.size();
     uint8_t data[len];
     readings.serialize(data);
+
+    readings.print();
+    Serial.println(DIVIDER);
 
     reset();
 
