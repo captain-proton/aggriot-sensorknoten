@@ -90,6 +90,7 @@ void communication_dataIn(uint8_t * dataPtr, uint8_t len) {
 	while (len--)
 		rb_put(inBuffer, *dataPtr++);
 	lastByteReceived = com_getMillis();
+	printf("Last byte received: %u.\n", lastByteReceived);
 }
 
 // Regelmäßig nachgucken ob Daten da sind bzw Timeouts zählen
@@ -247,11 +248,16 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 			// wird der Befehl abgebrochen da wir evtl ein nicht-sync-Zeichen als SYNC interpretiert haben weil der Sensor
 			// den Anfang des echten Befehls nicht mitbekommen hat. In dem Fall übergehen wir das SYNC-Zeichen und laufen direkt zum
 			// nächsten SYNC-Byte.
+			printf("Last byte received: %u vs time now=%u.\n", lastByteReceived, timeNow);
+			printf("Time diff: %u.\n", (timeNow - lastByteReceived));
+			
 			if ((timeNow - lastByteReceived) > RF_UART_IN_TIMEOUT_MS) {
 				printf("Byte timeout. Dropping start byte.\n");
 				// SYNC wegwerfen:
 				rb_delete_sync(inBuffer, 1);
 				continue; // Und gleich beim nächsten Byte gucken ob das ein SYNC-Byte sein könnte..
+			} else {
+				break;
 			}
 		} else {
 			// Zeichen wird verworfen:
@@ -261,6 +267,8 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 	
 	// Timeout für erwartete ACKs:
 	if (unAckedMessage) {
+		printf("Message timeout vs received: %u vs time now=%u.\n", messageTimeout, timeNow);
+		printf("Time diff: %u.\n", (timeNow - messageTimeout));
 		if ((timeNow - messageTimeout) > MESSAGE_ACK_TIMEOUT) {
 			unAckedMessage = 0;
 			com_messageTimeout();
@@ -498,12 +506,8 @@ uint32_t com_getMillis() {
 int main() {
 	uint16_t i;
 	
-	uint8_t key[] = {
-		0xab, 0xcd, 0xef, 0x91, 
-		0x34, 0xef, 0xab, 0xcd, 
-		0xef, 0x91, 0x34, 0xef, 
-		0xab, 0xcd, 0xef, 0x91
-		};
+	uint8_t key[] = {0x3d, 0xdc, 0x57, 0xcc, 0x89, 0x7c, 0xb0, 0x50, 0x6c, 0xd4, 0x1a, 0x89, 0x77, 0x65, 0x87, 0x56};
+	//uint8_t key[] = {0x5b, 0x42, 0xc2, 0x82, 0xd1, 0x89, 0xc5, 0x7c, 0xe5, 0xea, 0x54, 0x80, 0x23, 0xa6, 0x92, 0x2c};
 	
 	aes_init(&key[0], sizeof(key));
 	
@@ -544,6 +548,34 @@ int main() {
 
 	currentRole = ROLE_AGGREGATOR;
 	currentSequenceNumber = simSeqNum = 0;
+	
+	printf("\n\nMAC\n");
+	
+	uint8_t data[] = {0xf9, 0x00, 0x0c, 0x2e, 0x76, 0xb2, 0xb6, 0x29, 0x01, 0x00, 0x00, 0xc5, 0xa1, 0x77, 0x94, 0xab, 0xaf, 0x9d, 0x01, 0xbd, 0xd8, 0x79, 0x29};
+	uint8_t output[16];
+	aes_mac_calculate(&output[0], 8, &data[0], sizeof(data));
+
+
+
+
+	
+	printf("\n\nEingang falsches ACK:\n\n");
+	
+	unAckedMessage = 21218;							// Welche Sequenznummer hat die unbestätigte Nachricht die noch unterwegs ist?
+	messageTimeout = com_getMillis() - MESSAGE_ACK_TIMEOUT + 45;		// Timeout für eine unbestätigte Nachricht
+	currentSequenceNumber = 21218;			// Aktuelle Sequenznummer
+	simSeqNum = 21218;									// Simulierte Sequenznummer des Gegenübers
+	
+	currentRole = ROLE_SENSOR;
+	
+	uint8_t tdata[] = {0xf9, 0x30, 0x04, 0xcd, 0x8a, 0x72, 0xc9, 0xe2, 0x52, 0x00, 0x00, 0x4b, 0xf6, 0x3c, 0xa5, 0xbb, 0x28, 0x78, 0x31, 0x99, 0x6b};
+	
+	communication_dataIn(&tdata[0], sizeof(tdata));
+	
+	uint8_t j;
+	for (j=0;j<50;j++)
+		communication_poll();
+	
 	
 	//uint8_t testdata[] = {0xF9, 0x00, 0x0C, 0x44, 0x33, 0x22, 0x11, 0x3E, 0x00, 0x00, 0x00, 0x70, 0x5E, 0x1C, 0x2F, 0xA9, 0xD2, 0x64, 0x54, 0x35, 0x81, 0x8D, 0xD9, 0x76, 0x26, 0x14, 0x83, 0xAF, 0x67 };
 	//communication_dataIn(&testdata[0], sizeof(testdata));

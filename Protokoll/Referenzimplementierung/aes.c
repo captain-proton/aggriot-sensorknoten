@@ -133,6 +133,14 @@ void aes_mac_calculate(uint8_t * outputBuffer, uint16_t outputLength, uint8_t * 
 	uint8_t buffer[BLOCK_SIZE];
 	uint8_t i = BLOCK_SIZE;
 	
+	printf("AES-CBC-MAC: Length %u => ", macDataLen);
+	
+	uint8_t n;
+	printf("Before XOR: ");
+	for (n=0;n<macDataLen;n++) {
+		printf("%.2x ", toMAC[n]);
+	}
+	
 	// Zero out buffer:
 	while (i--)
 		buffer[i] = 0;
@@ -144,15 +152,29 @@ void aes_mac_calculate(uint8_t * outputBuffer, uint16_t outputLength, uint8_t * 
 	i = 2;
 	printf("MAC data: ");
 	while (macDataLen) {
+/*
+		uint8_t n;
+		printf("Before XOR: ");
+		for (n=0;n<BLOCK_SIZE;n++) {
+			printf("[0x%.2x, %u] ", buffer[n], n);
+		}
+		printf("\nDaten: ");
+*/
 		for (;i<BLOCK_SIZE;i++) {
 			if (!macDataLen--) {
 				macDataLen = 0;
 				break;
 			}
-			printf("%.2x ", *toMAC);
+//			printf("[0x%.2x, %u] ", *toMAC, i);
 			// XOR new data into buffer:
 			buffer[i] ^= *toMAC++;
 		}
+/*		printf(".\n");
+		printf("After XOR: ");
+		for (n=0;n<BLOCK_SIZE;n++) {
+			printf("[0x%.2x, %u] ", buffer[n], n);
+		}
+*/
 		// Encrypt data block:
 #ifdef _AVR_IO_H_
 		// Encrypt using AES-C:
@@ -166,7 +188,7 @@ void aes_mac_calculate(uint8_t * outputBuffer, uint16_t outputLength, uint8_t * 
 #endif
     i = 0;
 	} // Next round - XOR in more bytes
-	printf("\n");
+	//printf("\n");
 	
 	// Copy result:
 	printf("AES MAC: ");
