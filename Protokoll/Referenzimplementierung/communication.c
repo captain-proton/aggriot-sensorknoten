@@ -37,6 +37,7 @@ uint32_t crc_calcCRC32r(uint32_t crc, uint8_t c) {
   return crc;
 }
 
+#define com_println(x)
 
 // For testing:
 #ifdef TESTING
@@ -77,7 +78,7 @@ void com_println(char * msg) __attribute__((weak));
 #endif
 
 void communication_init(uint32_t sensorAddress) {
-	static uint8_t inBuffer_space[256];
+	static uint8_t inBuffer_space[50];
 	inBuffer = rb_createBuffer(&inBuffer_space[0], sizeof(inBuffer_space));
 	if (inBuffer) {
 		printf("Input buffer created.\n");
@@ -601,8 +602,9 @@ int main() {
 	
 }
 
+/*
 void com_println(char * msg) {
 	printf(msg);
 }
-
+*/
 #endif

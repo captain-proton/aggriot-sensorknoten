@@ -68,7 +68,7 @@ uint8_t com_sendMessage(uint8_t * data, uint8_t len);
 uint32_t com_getMillis();
 
 // Message wurde bestätigt:
-void messageAcked();
+void com_messageAcked();
 
 void com_println(char * msg);
 
