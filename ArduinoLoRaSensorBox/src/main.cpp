@@ -266,9 +266,6 @@ void runSensorRecord() {
     #ifdef BARO
         baroSensor.loop();
     #endif
-    #ifdef PIR
-        pirSensor.loop();
-    #endif
 }
 
 /**
@@ -488,6 +485,9 @@ void loop()
     #endif
     #ifdef DUST
         dustCalculator.loop();
+    #endif
+    #ifdef PIR
+        pirSensor.loop();
     #endif
 
     checkConnection();
