@@ -70,7 +70,7 @@ uint8_t com_sendMessage(uint8_t * data, uint8_t len);
 #ifndef TESTING
 void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) __attribute__((weak));
 void com_messageTimeout() __attribute__((weak));
-void com_messageAcked() __attribute__((weak));
+void com_messageAcked();
 void com_sendOutgoingData(uint8_t * ptr, uint8_t length) __attribute__((weak));
 uint32_t com_getMillis() __attribute__((weak));
 void com_println(char * msg) __attribute__((weak));
@@ -455,9 +455,11 @@ void com_messageTimeout() {
 	//#warning TODO.
 }
 
+#ifdef TESTING
 void com_messageAcked() {
 	// Nothing in here	
 }
+#endif
 
 void com_sendOutgoingData(uint8_t * ptr, uint8_t length) {
 	printf("Outgoing data of %d bytes.\n", length);
