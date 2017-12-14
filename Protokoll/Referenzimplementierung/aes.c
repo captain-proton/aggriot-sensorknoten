@@ -132,7 +132,8 @@ void aes_cryptPayload(uint8_t * payload, uint8_t payloadLength, uint32_t sensorA
 void aes_mac_calculate(uint8_t * outputBuffer, uint16_t outputLength, uint8_t * toMAC, uint16_t macDataLen) {
 	uint8_t buffer[BLOCK_SIZE];
 	uint8_t i = BLOCK_SIZE;
-	
+
+/*	
 	printf("AES-CBC-MAC: Length %u => ", macDataLen);
 	
 	uint8_t n;
@@ -140,7 +141,7 @@ void aes_mac_calculate(uint8_t * outputBuffer, uint16_t outputLength, uint8_t * 
 	for (n=0;n<macDataLen;n++) {
 		printf("%.2x ", toMAC[n]);
 	}
-	
+*/	
 	// Zero out buffer:
 	while (i--)
 		buffer[i] = 0;

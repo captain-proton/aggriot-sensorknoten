@@ -73,6 +73,7 @@ void com_messageTimeout() __attribute__((weak));
 void com_messageAcked() __attribute__((weak));
 void com_sendOutgoingData(uint8_t * ptr, uint8_t length) __attribute__((weak));
 uint32_t com_getMillis() __attribute__((weak));
+void com_println(char * msg) __attribute__((weak));
 #endif
 
 void communication_init(uint32_t sensorAddress) {
@@ -168,11 +169,16 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 								
 								// Eingehende Nachricht zu einem Sensor/Aggregator. Sind wir gemeint?
 								if ((mHdr->sensorAddress == myAddress) || (currentRole == ROLE_AGGREGATOR)) {
-									printf("   That's me!\n");
+									com_println("   That's me!\n");
 									
 #ifdef USE_MAC									
 									// Versuchen die Nachricht zu entschlüsseln:
 									aes_cryptPayload(&messageData[0], max(cmdlen, MIN_DATA_SIZE), mHdr->sensorAddress, mHdr->sequenceNumber, mHdr->flags & FLAG_A_TO_S); // 1 = Incoming message
+									
+									printf("Payload=");
+									for (i=0;i<cmdlen;i++)
+										printf("%.2x ", messageData[i]);
+									printf("\n");
 									
 									uint8_t MAC_buffer[MAC_SIZE];
 									
@@ -204,21 +210,21 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 									// Ist korrekt ver/entschlüsselt (und übertragen) worden?
 									if (calculatedCRC == mFtr->payloadCRC) {
 #endif
-										printf("   Valid encryption.\n");
+										com_println("   Valid encryption.\n");
 										// Nachricht verarbeiten:
 										com_messageReceived(mHdr, &messageData[0], cmdlen);
 										
 									} else { // .. nicht korrekt verschlüsselt: Nachricht ignorieren.
-										printf("   Invalid encryption. Dropping message.\n");
+										com_println("   Invalid encryption. Dropping message.\n");
 									}
 								} else { // .. Nicht für uns. Ignorieren.
-									printf("   Not for me.");
+									com_println("   Not for me.");
 								}
 							} else { // .. Nachricht an den Aggregator. Ignorieren.
-								printf("Upstream/downstream wrong!\n");
+								com_println("Upstream/downstream wrong!\n");
 							}
 						} else { // .. Andere Protokollversion. Die kennen wir nicht. Ignorieren.
-							printf("Wrong version.\n");
+							com_println("Wrong version.\n");
 						}
 						
 					} else {
@@ -227,7 +233,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 						// Also einfach das "falsche" SYNC wegwerfen und nach einem neuen SYNC suchen:
 						rb_delete_sync(inBuffer, 1);
 						
-						printf("is invalid.\n");
+						com_println("-> CRC is invalid.\n");
 						
 					}
 					
@@ -311,7 +317,7 @@ void communication_sendCommand(uint32_t nodeAddress, uint8_t* data, uint8_t data
 	
 	// MAC über komplette Nachricht in place berechnen (bis auf den MAC selber und die CRC16):
 	aes_mac_calculate(&mFtr->MAC[0], MAC_SIZE, &msgBuffer[0], sizeof(MessageHeader) + len);
-  
+	
 	// Daten in place verschlüsseln:
 	aes_cryptPayload(dataPtr, max(data_len, MIN_DATA_SIZE), mHdr->sensorAddress, useSequenceNumber, mHdr->flags & FLAG_A_TO_S);
 	
@@ -357,22 +363,23 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 	uint32_t * intSeqNum;
 	
 	if (currentRole) {
-		printf("Message received, role AGGREGATOR.\n");
+		com_println("Message received, role AGGREGATOR.\n");
 		intSeqNum = &currentSequenceNumber;
 	} else {
-		printf("Message received, role SENSOR.\n");
+		com_println("Message received, role SENSOR.\n");
 		intSeqNum = &simSeqNum;
 	}
 	
 	if (mHdr->flags & FLAG_IS_ACK) {
 		if (payload[0] || payload[1] || payload[2] || payload[3]) {
-			printf("Received wrong ACK.\n");
+			com_println("Received wrong ACK.\n");
 			return; // Kein gültiges ACK - da muss der Payload komplett \0 sein!
 		}
 		
 		// ACK-SeqNums müssen == unAckedMessage sein
 		if (mHdr->sequenceNumber != unAckedMessage) {
-			printf("Wrong ACK (%d recv vs %d expct.\n", mHdr->sequenceNumber, unAckedMessage);
+			com_println("Wrong ACK\n");
+			printf("-> (%d recv vs %d expct.\n", mHdr->sequenceNumber, unAckedMessage);
 			return;
 		}
 		
@@ -384,7 +391,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 		
 		com_messageAcked();
 		
-		printf("VALID ACK!\n");
+		com_println("VALID ACK!\n");
 		
 		// Perfekt.
 	} else {
@@ -401,7 +408,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 			
 		} else {
 			if (*intSeqNum < mHdr->sequenceNumber) {
-				printf("Received valid seqnum message. ACKing..\n");
+				com_println("Received valid seqnum message. ACKing..\n");
 				// ACK generieren, Nachricht empfangen:
 				communication_sendCommand(mHdr->sensorAddress, 0, 0, mHdr->sequenceNumber, 1); // 1=Is ACK, ohne Daten und mit Länge 0
 				// Anschließend die gültige Sequenznummer hoch zählen
@@ -506,8 +513,10 @@ uint32_t com_getMillis() {
 int main() {
 	uint16_t i;
 	
-	uint8_t key[] = {0x3d, 0xdc, 0x57, 0xcc, 0x89, 0x7c, 0xb0, 0x50, 0x6c, 0xd4, 0x1a, 0x89, 0x77, 0x65, 0x87, 0x56};
+	//uint8_t key[] = {0xab, 0xcd, 0xef, 0x91, 0x34, 0xef, 0xab, 0xcd, 0xef, 0x91, 0x34, 0xef, 0xab, 0xcd, 0xef, 0x91};
+	//uint8_t key[] = {0x3d, 0xdc, 0x57, 0xcc, 0x89, 0x7c, 0xb0, 0x50, 0x6c, 0xd4, 0x1a, 0x89, 0x77, 0x65, 0x87, 0x56};
 	//uint8_t key[] = {0x5b, 0x42, 0xc2, 0x82, 0xd1, 0x89, 0xc5, 0x7c, 0xe5, 0xea, 0x54, 0x80, 0x23, 0xa6, 0x92, 0x2c};
+	uint8_t key[] = {0x73, 0x3a, 0xbf, 0xd6, 0x52, 0xf6, 0xa8, 0x85, 0x1f, 0x91, 0x35, 0xcc, 0xb5, 0x97, 0x17, 0x49};
 	
 	aes_init(&key[0], sizeof(key));
 	
@@ -518,7 +527,7 @@ int main() {
 	currentRole = ROLE_SENSOR;
 	
 	// Nachricht mit Sequenznummer 123 senden:
-
+	
 	currentSequenceNumber = simSeqNum = 15140;
 	
 	uint8_t * payload = "\0\0\0\0\0\0\0\0";
@@ -561,14 +570,21 @@ int main() {
 	
 	printf("\n\nEingang falsches ACK:\n\n");
 	
-	unAckedMessage = 21218;							// Welche Sequenznummer hat die unbestätigte Nachricht die noch unterwegs ist?
+	unAckedMessage = 0;						// Welche Sequenznummer hat die unbestätigte Nachricht die noch unterwegs ist?
 	messageTimeout = com_getMillis() - MESSAGE_ACK_TIMEOUT + 45;		// Timeout für eine unbestätigte Nachricht
-	currentSequenceNumber = 21218;			// Aktuelle Sequenznummer
-	simSeqNum = 21218;									// Simulierte Sequenznummer des Gegenübers
+	currentSequenceNumber = 0;		// Aktuelle Sequenznummer
+	simSeqNum = 0;								// Simulierte Sequenznummer des Gegenübers
+	myAddress = 0xb1f4e3ab;
+	
 	
 	currentRole = ROLE_SENSOR;
 	
-	uint8_t tdata[] = {0xf9, 0x30, 0x04, 0xcd, 0x8a, 0x72, 0xc9, 0xe2, 0x52, 0x00, 0x00, 0x4b, 0xf6, 0x3c, 0xa5, 0xbb, 0x28, 0x78, 0x31, 0x99, 0x6b};
+	//uint8_t tdata[] = {0xf9, 0x30, 0x04, 0xcd, 0x8a, 0x72, 0xc9, 0xe2, 0x52, 0x00, 0x00, 0x4b, 0xf6, 0x3c, 0xa5, 0xbb, 0x28, 0x78, 0x31, 0x99, 0x6b};
+	//	uint8_t tdata[] = {0xf9, 0x10, 0x04, 0xab, 0xe3, 0xf4, 0xb1, 0x22, 0x00, 0x00, 0x00, 0xef, 0xcb, 0x3c, 0x0c, 0x0b, 0x18, 0xc1, 0xbc, 0x58, 0x15, 0xd3, 0xa8, 0xa3, 0x0a};
+	// {0xf9, 0x10, 0x04, 0xab, 0xe3, 0xf4, 0xb1, 0x22, 0x00, 0x00, 0x00, 0xef, 0xcb, 0x3c, 0x0c, 0xc0, 0xbb, 0x18, 0xc1, 0xbc, 0x58, 0x15, 0xd3, 0xa8, 0xa3, 0x0a}
+	//uint8_t tdata[] = {0xf9, 0x00, 0x13, 0xab, 0xe3, 0xf4, 0xb1, 0x02, 0x00, 0x00, 0x00, 0x14, 0x3b, 0x2e, 0xd9, 0x3d, 0xf3, 0x6e, 0xf6, 0x1c, 0x03, 0xfd, 0xde, 0xf1, 0xe8, 0x4e, 0xa5, 0x1a, 0xf3, 0x2a, 0x55, 0x86, 0xbb, 0xe8, 0xe2, 0x2f, 0x0d, 0x59, 0x22, 0x15};
+	uint8_t tdata[] = {0xf9 ,0x30 ,0x4 ,0xab ,0xe3 ,0xf4 ,0xb1 ,0x60 ,0x0 ,0x0 ,0x0 ,0xdd ,0x94 ,0xcb ,0x7c ,0x20 ,0x91 ,0x20 ,0x92 ,0x5c ,0x95 ,0xfc ,0xff ,0x91 ,0x0a};
+	
 	
 	communication_dataIn(&tdata[0], sizeof(tdata));
 	
@@ -581,6 +597,10 @@ int main() {
 	//communication_dataIn(&testdata[0], sizeof(testdata));
 	//communication_poll();
 	
+}
+
+void com_println(char * msg) {
+	printf(msg);
 }
 
 #endif

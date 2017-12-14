@@ -70,5 +70,6 @@ uint32_t com_getMillis();
 // Message wurde bestätigt:
 void messageAcked();
 
+void com_println(char * msg);
 
 #endif
