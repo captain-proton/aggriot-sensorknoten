@@ -5,6 +5,9 @@
 
 #ifndef TESTING
 #include <avr/io.h>
+#else
+#include <time.h>
+#include <stdlib.h>
 #endif
 
 #define max(x, y)							((x) > (y) ? (x) : (y))
@@ -37,7 +40,7 @@ uint32_t crc_calcCRC32r(uint32_t crc, uint8_t c) {
   return crc;
 }
 
-#define com_println(x)	printf(x)
+//#define com_println(x)	printf(x)
 
 // For testing:
 #ifdef TESTING
@@ -84,6 +87,9 @@ void communication_init(uint32_t sensorAddress) {
 		printf("Input buffer created.\n");
 	}
 	myAddress = sensorAddress;
+#ifdef TESTING
+	srand(time(NULL));   // should only be called once
+#endif
 }
 
 // Empfangenen Datenblock füttern:
@@ -111,8 +117,6 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 		return;
 	executingCOMCheck = 1;
 #endif
-	
-	printf(".");
 	
 	// Puffer überprüfen:
 	while ((rxc = rb_getCount_sync(inBuffer))) {
@@ -175,7 +179,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 								
 								// Eingehende Nachricht zu einem Sensor/Aggregator. Sind wir gemeint?
 								if ((mHdr->sensorAddress == myAddress) || (currentRole == ROLE_AGGREGATOR)) {
-									com_println("   That's me!\n");
+									com_println("A"); //That's me!\n");
 									
 #ifdef USE_MAC									
 									// Versuchen die Nachricht zu entschlüsseln:
@@ -216,21 +220,21 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 									// Ist korrekt ver/entschlüsselt (und übertragen) worden?
 									if (calculatedCRC == mFtr->payloadCRC) {
 #endif
-										com_println("   Valid encryption.\n");
+										com_println("B"); //Val enc.\n");
 										// Nachricht verarbeiten:
 										com_messageReceived(mHdr, &messageData[0], cmdlen);
 										
 									} else { // .. nicht korrekt verschlüsselt: Nachricht ignorieren.
-										com_println("   Invalid encryption. Dropping message.\n");
+										com_println("C"); //Inv enc.\n");
 									}
 								} else { // .. Nicht für uns. Ignorieren.
-									com_println("   Not for me.");
+									com_println("D"); //Not for me.");
 								}
 							} else { // .. Nachricht an den Aggregator. Ignorieren.
-								com_println("Upstream/downstream wrong!\n");
+								com_println("E"); //Us/Ds wr!\n");
 							}
 						} else { // .. Andere Protokollversion. Die kennen wir nicht. Ignorieren.
-							com_println("Wrong version.\n");
+							com_println("F"); //Wr V.\n");
 						}
 						
 					} else {
@@ -239,14 +243,14 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 						// Also einfach das "falsche" SYNC wegwerfen und nach einem neuen SYNC suchen:
 						rb_delete_sync(inBuffer, 1);
 						
-						com_println("-> CRC is invalid.\n");
+						com_println("G"); //Inv CRC.\n");
 						
 					}
 					
 					// Wir haben irgendetwas aus dem Eingangspuffer gelöscht - es könnte also noch ein Befehl vorhanden sein: Nächsten Befehl abarbeiten..
 					continue;
 				} else { // Nicht genug Daten für das Paket vorhanden
-					printf("Received: %u, waiting for %u.\n", rxc, packetLength);
+					com_println("H"); //No data.\n");
 				}
 			} // Nicht genug Daten um die Länge zu ermitteln
 			
@@ -256,7 +260,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 			// nächsten SYNC-Byte.
 			
 			if ((timeNow - lastByteReceived) > RF_UART_IN_TIMEOUT_MS) {
-				printf("Byte timeout. Dropping start byte (%u received vs %u now).\n", lastByteReceived, timeNow);
+				com_println("I"); //Bt timeout.\n");
 				// SYNC wegwerfen:
 				rb_delete_sync(inBuffer, 1);
 				continue; // Und gleich beim nächsten Byte gucken ob das ein SYNC-Byte sein könnte..
@@ -266,14 +270,14 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 		} else {
 			// Zeichen wird verworfen:
 			rb_delete_sync(inBuffer, 1);
-			printf("No start byte..\r\n");
+			com_println("J"); //No SB..\n");
 		}
 	}
 	
 	// Timeout für erwartete ACKs:
 	if (unAckedMessage) {
 		if ((timeNow - messageTimeout) > MESSAGE_ACK_TIMEOUT) {
-			printf("ACK TIMEOUT.\n");
+			com_println("K"); //ACK T.\n");
 			unAckedMessage = 0;
 			com_messageTimeout();
 		}
@@ -361,22 +365,22 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 	uint32_t * intSeqNum;
 	
 	if (currentRole) {
-		com_println("Message received, role AGGREGATOR.\n");
+		com_println("L"); //M rec, r AGGR\n");
 		intSeqNum = &currentSequenceNumber;
 	} else {
-		com_println("Message received, role SENSOR.\n");
+		com_println("M"); // M rec, r SENS\n");
 		intSeqNum = &simSeqNum;
 	}
 	
 	if (mHdr->flags & FLAG_IS_ACK) {
 		if (payload[0] || payload[1] || payload[2] || payload[3]) {
-			com_println("Received wrong ACK.\n");
+			com_println("N"); //Rec wr ACK.\n");
 			return; // Kein gültiges ACK - da muss der Payload komplett \0 sein!
 		}
 		
 		// ACK-SeqNums müssen == unAckedMessage sein
 		if (mHdr->sequenceNumber != unAckedMessage) {
-			com_println("Wrong ACK\n");
+			com_println("O"); // Wr ACK\n");
 			printf("-> (%d recv vs %d expct.\n", mHdr->sequenceNumber, unAckedMessage);
 			return;
 		}
@@ -389,13 +393,13 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 		
 		com_messageAcked();
 		
-		com_println("VALID ACK!\n");
+		com_println("P"); //VALID ACK!\n");
 		
 		// Perfekt.
 	} else {
 		// Eingehende, neue Nachricht:
 		if (payload[0] == MESSAGE_TYPE_NACK_SEQNUM) {
-			printf("NACK seqnum! Old %d vs new %d. Forwarding..\n", *intSeqNum, mHdr->sequenceNumber);
+			com_println("Q"); //NACK seqnum! Forwarding..\n");
 			// Semi-ACK, wir liegen mit der Sequenznummer zu weit zurück. Alte Nachricht muss wiederholt werden, allerdings mit neuer Sequenznummer:
 			if (*intSeqNum < mHdr->sequenceNumber) {
 				*intSeqNum = mHdr->sequenceNumber + 1;
@@ -406,7 +410,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 			
 		} else {
 			if (*intSeqNum < mHdr->sequenceNumber) {
-				com_println("Received valid seqnum message. ACKing..\n");
+				com_println("R"); //Rec val msg. ACKing..\n");
 				// ACK generieren, Nachricht empfangen:
 				communication_sendCommand(mHdr->sensorAddress, 0, 0, mHdr->sequenceNumber, 1); // 1=Is ACK, ohne Daten und mit Länge 0
 				// Anschließend die gültige Sequenznummer hoch zählen
@@ -414,7 +418,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 				// .. und Nachricht weiter leiten:
 				com_processValidMessage(payload, payloadLength);
 			} else {
-				printf("Received low seqnum message. Rejecting..\n");
+				com_println("S"); //Low seqnum. Rej..\n");
 				// Versuch uns eine Nachricht mit zu kleiner Sequenznummer unter zu jubeln. Wir antworten mit 255er-Nachricht und aktuelle Sequenznummer + 1
 				uint8_t byte255 = MESSAGE_TYPE_NACK_SEQNUM;
 				communication_sendCommand(mHdr->sensorAddress, &byte255, 1, *intSeqNum + 1, 0); 
@@ -445,12 +449,14 @@ void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) {
 
 // Eine gesendete Nachricht wurde in einer gewissen Zeit nicht bestätigt:
 void com_messageTimeout() {
+#ifdef TESTING
 	printf("MESSAGE TIMEOUT!\n");
 	
 	// Nachricht mit Sequenznummer 123 senden:
 	uint8_t * payload = (uint8_t*)"Das ist zwei Test.";
 	com_sendMessage(payload, 18);	
 	//#warning TODO.
+#endif
 }
 
 #ifdef TESTING
@@ -463,6 +469,15 @@ void com_sendOutgoingData(uint8_t * ptr, uint8_t length) {
 	printf("Outgoing data of %d bytes.\n", length);
 	// Wenn uns niemand die Daten abnimmt, schicken wir sie per Loopback wieder rein und simulieren die Gegenseite:
 #ifdef TESTING
+
+	// Drop every 2nd message:
+	int r = rand();      // returns a pseudo-random integer between 0 and RAND_MAX
+	printf("RAND=%u.\n", r);
+	if (r > 0x70000000) {
+		printf("MESSAGE LOST!\n");
+		return;
+	}
+	
 	// Für die Auswertung zum Testen müssen wir die Rolle wechseln:
 	currentRole ^= 1;
 	printf("Switching role to %s.\n", currentRole ? "AGGREGATOR" : "SENSOR");
@@ -521,7 +536,8 @@ int main() {
 	aes_init(&key[0], sizeof(key));
 	
 	// Aufsetzen:
-	communication_init(0x11223344);
+	//0xAB ,0xE3 ,0xF4 ,0xB1 
+	communication_init(0xb1f4e3ab);
 	//communication_init(0x44332211);
 	
 	currentRole = ROLE_SENSOR;
@@ -536,10 +552,20 @@ int main() {
 	
 	printf("\n\nSTEP 2\n\n\n");
 	
-	// Noch eine Nachricht mit Sequenznummer 123 senden:
 	uint8_t * payload2 = "Das ist ein weiterer Test.";
-	com_sendMessage(payload2, 26);
 	
+	for (i=0;i<100;i++) {
+		// Noch eine Nachricht mit Sequenznummer 123 senden:
+		com_sendMessage(payload2, 26);
+		uint16_t n;
+		for (n=0;n<2005;n++) {
+			communication_poll();
+		}
+		if (unAckedMessage) {
+			printf("############################################################ FEHLER\n");
+			exit(1);
+		}
+	}
 	// Rolle wechseln und Nachricht zurück schicken:
 	printf("\n\nSTEP 3\n\n\n");
 	
@@ -568,15 +594,6 @@ int main() {
 	
 	// Noch eine Nachricht mit Sequenznummer 123 senden:
 	com_sendMessage(payload2, 26);
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	
 	printf("Nachrichtensimulation:\n");
 
@@ -617,6 +634,36 @@ int main() {
 	for (j=0;j<50;j++)
 		communication_poll();
 	
+	
+	
+	
+	
+	
+	
+	
+	
+	uint8_t ackOK[] =  {0xF9 ,0x30 ,0x04 ,0xAB ,0xE3 ,0xF4 ,0xB1 ,0x6D ,0x5 ,0x0 ,0x0 ,0xCC ,0x77 ,0xCB ,0x67 ,0x46 ,0xF5 ,0x8F ,0x3F ,0xBE ,0x08 ,0xF7 ,0xAD ,0x7D ,0xCF};
+	uint8_t ackNOK[] = {0xF9 ,0x30 ,0x04 ,0xAB ,0xE3 ,0xF4 ,0xB1 ,0x6E ,0x5 ,0x0 ,0x0 ,0xC1 ,0xDB ,0x13 ,0x95 ,0xFE ,0xDC ,0xDF ,0xB1 ,0x76 ,0xB1 ,0x54 ,0x64 ,0xF4 ,0xE4};
+	
+	for (i=0;i<100;i++) {
+	printf("\n\nACK-Test OK:\n\n");
+	simSeqNum = 0x56d;
+	unAckedMessage = 0x56d;
+	currentRole = ROLE_SENSOR;
+	communication_dataIn(&ackOK[0], sizeof(ackOK));
+	if (unAckedMessage) {
+		printf("############################################################ FEHLER\n");
+	}
+	
+	printf("\n\nACK-Test NOK:\n\n");
+	simSeqNum = 0x56e;
+	unAckedMessage = 0x56e;
+	currentRole = ROLE_SENSOR;
+	communication_dataIn(&ackNOK[0], sizeof(ackNOK));
+	if (unAckedMessage) {
+		printf("############################################################ FEHLER\n");
+	}
+	}
 	
 	//uint8_t testdata[] = {0xF9, 0x00, 0x0C, 0x44, 0x33, 0x22, 0x11, 0x3E, 0x00, 0x00, 0x00, 0x70, 0x5E, 0x1C, 0x2F, 0xA9, 0xD2, 0x64, 0x54, 0x35, 0x81, 0x8D, 0xD9, 0x76, 0x26, 0x14, 0x83, 0xAF, 0x67 };
 	//communication_dataIn(&testdata[0], sizeof(testdata));
