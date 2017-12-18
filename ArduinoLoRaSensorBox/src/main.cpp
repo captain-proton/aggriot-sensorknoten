@@ -110,22 +110,26 @@ extern "C" {
     #include "aes.h"
 }
 
-// #define _TASK_SLEEP_ON_IDLE_RUN
+#ifdef LED
+    #define ACK_HIGHLIGHT_MS        10
+#else
+    #define ACK_HIGHLIGHT_MS        0
+#endif
 
 /** Defines the interval in milliseconds after new messages should be send */
-#define SEND_DELAY_MS               5000L
+#define SEND_DELAY_MS               5000L - ACK_HIGHLIGHT_MS
 
 /** Defines the interval in milliseconds after an unsuccessful handshake should be executed again */
 #define HANDSHAKE_DELAY_MS          300000L
 
 /** Minimum size of payload used on handshake */
-#define MIN_HANDSHAKE_PAYLOAD_LEN   8
+#define MIN_HANDSHAKE_PAYLOAD_LEN   4
 
 /** Maximum size of payload used on handshake */
-#define MAX_HANDSHAKE_PAYLOAD_LEN   16
+#define MAX_HANDSHAKE_PAYLOAD_LEN   8
 
 /** Default interval when sensor data is measured */
-#define DEFAULT_SENSOR_INTERVAL     1000
+#define DEFAULT_SENSOR_INTERVAL     1000 - ACK_HIGHLIGHT_MS
 
 /** When data is send on the radio, float values are normalized so that values can be recalculated with floating points. */
 #define FLOAT_NORMALIZER            100
@@ -176,17 +180,12 @@ void runSensorRecord();
 void sendData();
 /** Task callback when a handshake should be done. */
 void handshake();
-/** Task callback to check if a handshake was successful. */
-void checkConnection();
 
 /** Task wrapper that calls loop() of sensors that just read one single value and do not depend on multiple calls as for example dust calculation */
 Task tSensors(DEFAULT_SENSOR_INTERVAL, TASK_FOREVER, &runSensorRecord);
 
 /** Task that is going to send data on a interval. */
 Task tSendData(SEND_DELAY_MS, TASK_FOREVER, &sendData);
-
-/** Task that is going to run a handshake. */
-Task tHandshake(HANDSHAKE_DELAY_MS, TASK_FOREVER, &handshake);
 
 /* SENSORS */
 
@@ -272,6 +271,7 @@ void runSensorRecord() {
  * Resets the measurement data of all sensors.
  */
 void reset() {
+    Serial.println(F("main::reset()"));
     #ifdef DUST
         if (dustCalculator.isCalculated()) {
             dustCalculator.reset();
@@ -307,6 +307,13 @@ void sendData() {
 
     Serial.println(DIVIDER);
     Serial.println(F("main::sendData()"));
+
+    if (!radio.isConnected())
+    {
+        Serial.println(F("radio not connected -> running handshake"));
+        handshake();
+        return;
+    }
 
     /** Data container that is delivered over the network */
     SensorReadings readings;
@@ -391,27 +398,9 @@ void setupRandomHandshakeData() {
     }
 
 void handshake() {
-    if (!radio.isConnected()) {
-        Serial.println(F("main::handshake() - Not connected -> init handshake"));
-        setupRandomHandshakeData();
-        radio.handshake();
-    }
-}
-
-void checkConnection() {
-    if (radio.isConnected()
-        && tHandshake.isEnabled()
-        && !tSendData.isEnabled())
-    {
-
-        Serial.println(F("main::checkConnection() - Connected -> disabling handshake, enable data send"));
-
-        tHandshake.disable();
-
-        scheduler.addTask(tSendData);
-        tSendData.enable();
-        Serial.println(F("Enabled data send"));
-    }
+    Serial.println(F("main::handshake()"));
+    setupRandomHandshakeData();
+    radio.handshake();
 }
 
 /**
@@ -459,8 +448,8 @@ void setup()
     tSensors.enable();
     Serial.println(F("Enabled sensor readings task"));
 
-    scheduler.addTask(tHandshake);
-    tHandshake.enable();
+    scheduler.addTask(tSendData);
+    tSendData.enable();
     Serial.println(F("Enabled radio handshake"));
 
     #ifdef ADDRESS
@@ -489,8 +478,6 @@ void loop()
     #ifdef PIR
         pirSensor.loop();
     #endif
-
-    checkConnection();
 
     radio.loop();
 
@@ -535,6 +522,7 @@ void com_messageTimeout() {
 * Callback method used by aggriotlib when a packet was acked
 */
 void com_messageAcked() {
+    Serial.println(F("main::com_messageAcked"));
     #ifdef LED
         digitalWrite(LED, HIGH);
         delay(10);
