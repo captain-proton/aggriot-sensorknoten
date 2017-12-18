@@ -37,7 +37,7 @@ uint32_t crc_calcCRC32r(uint32_t crc, uint8_t c) {
   return crc;
 }
 
-#define com_println(x)
+#define com_println(x)	printf(x)
 
 // For testing:
 #ifdef TESTING
@@ -55,8 +55,8 @@ static uint8_t executingCOMCheck = 0;		// Wird communication_poll gerade ausgefü
 static uint32_t lastByteReceived = 0; 			// Timeout für eingehende Bytes
 static uint32_t unAckedMessage;					// Welche Sequenznummer hat die unbestätigte Nachricht die noch unterwegs ist?
 static uint16_t messageTimeout;					// Timeout für eine unbestätigte Nachricht
-static uint32_t currentSequenceNumber;	// Aktuelle Sequenznummer
-static uint32_t simSeqNum;							// Simulierte Sequenznummer des Gegenübers
+static uint32_t currentSequenceNumber;	// Aktuelle Sequenznummer - AGGREGATOR
+static uint32_t simSeqNum;							// Simulierte Sequenznummer des Gegenübers - SENSOR
 static uint8_t currentRole;
 static uint32_t myAddress;							// Meine Adresse
 #define ROLE_SENSOR			0
@@ -78,7 +78,7 @@ void com_println(char * msg) __attribute__((weak));
 #endif
 
 void communication_init(uint32_t sensorAddress) {
-	static uint8_t inBuffer_space[50];
+	static uint8_t inBuffer_space[100];
 	inBuffer = rb_createBuffer(&inBuffer_space[0], sizeof(inBuffer_space));
 	if (inBuffer) {
 		printf("Input buffer created.\n");
@@ -93,6 +93,9 @@ void communication_dataIn(uint8_t * dataPtr, uint8_t len) {
 		rb_put(inBuffer, *dataPtr++);
 	lastByteReceived = com_getMillis();
 	printf("Last byte received: %u.\n", lastByteReceived);
+#ifdef TESTING
+	communication_poll();
+#endif
 }
 
 // Regelmäßig nachgucken ob Daten da sind bzw Timeouts zählen
@@ -108,6 +111,8 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 		return;
 	executingCOMCheck = 1;
 #endif
+	
+	printf(".");
 	
 	// Puffer überprüfen:
 	while ((rxc = rb_getCount_sync(inBuffer))) {
@@ -240,26 +245,18 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 					
 					// Wir haben irgendetwas aus dem Eingangspuffer gelöscht - es könnte also noch ein Befehl vorhanden sein: Nächsten Befehl abarbeiten..
 					continue;
-					
-				} else {
-					
-					//// Das gedachte Sync-Zeichen war kein Sync! Es sind aber eventuell noch weitere Daten im Eingangspuffer..
-					//rb_delete_sync(inBuffer, 1);
-					//continue;
-					
+				} else { // Nicht genug Daten für das Paket vorhanden
+					printf("Received: %u, waiting for %u.\n", rxc, packetLength);
 				}
-				
-			}
+			} // Nicht genug Daten um die Länge zu ermitteln
 			
 			// Der Befehl ist noch nicht vollständig. Wenn aber die einzelnen Zeichen eines Befehls mehr als (X)ms auseinander liegen,
 			// wird der Befehl abgebrochen da wir evtl ein nicht-sync-Zeichen als SYNC interpretiert haben weil der Sensor
 			// den Anfang des echten Befehls nicht mitbekommen hat. In dem Fall übergehen wir das SYNC-Zeichen und laufen direkt zum
 			// nächsten SYNC-Byte.
-			printf("Last byte received: %u vs time now=%u.\n", lastByteReceived, timeNow);
-			printf("Time diff: %u.\n", (timeNow - lastByteReceived));
 			
 			if ((timeNow - lastByteReceived) > RF_UART_IN_TIMEOUT_MS) {
-				printf("Byte timeout. Dropping start byte.\n");
+				printf("Byte timeout. Dropping start byte (%u received vs %u now).\n", lastByteReceived, timeNow);
 				// SYNC wegwerfen:
 				rb_delete_sync(inBuffer, 1);
 				continue; // Und gleich beim nächsten Byte gucken ob das ein SYNC-Byte sein könnte..
@@ -269,14 +266,14 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 		} else {
 			// Zeichen wird verworfen:
 			rb_delete_sync(inBuffer, 1);
+			printf("No start byte..\r\n");
 		}
 	}
 	
 	// Timeout für erwartete ACKs:
 	if (unAckedMessage) {
-		printf("Message timeout vs received: %u vs time now=%u.\n", messageTimeout, timeNow);
-		printf("Time diff: %u.\n", (timeNow - messageTimeout));
 		if ((timeNow - messageTimeout) > MESSAGE_ACK_TIMEOUT) {
+			printf("ACK TIMEOUT.\n");
 			unAckedMessage = 0;
 			com_messageTimeout();
 		}
@@ -555,6 +552,31 @@ int main() {
 	for (i=0;i<3000;i++) {
 		communication_poll();
 	}
+	
+	// Rolle wechseln und Nachricht zurück schicken:
+	printf("\n\nSTEP 4\n\n\n");
+	
+	currentRole = ROLE_SENSOR;
+	
+	// Nachricht mit Sequenznummer 123 senden:
+	currentSequenceNumber = 16000; // Aggregator
+	simSeqNum = 15140; // Sensor
+	
+	com_sendMessage(payload, 8);
+	
+	printf("\n\nSTEP 5\n\n\n");
+	
+	// Noch eine Nachricht mit Sequenznummer 123 senden:
+	com_sendMessage(payload2, 26);
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	printf("Nachrichtensimulation:\n");
 
