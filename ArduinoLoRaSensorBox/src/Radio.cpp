@@ -46,7 +46,7 @@ void Radio::handshake() {
 }
 
 bool Radio::isConnected() {
-    return true;//_isConnected;
+    return _isConnected;
 }
 
 void Radio::loop() {
@@ -56,6 +56,9 @@ void Radio::loop() {
         uint8_t buf[len];
 
         if (_driver->recv(buf, &len)) {
+#ifdef LOG_DEBUG
+            printPacket(buf, &len);
+#endif
             communication_dataIn(buf, len);
         }
     }
@@ -73,6 +76,17 @@ void Radio::highlightHandshake()
         delay(100);
     }
     #endif
+}
+
+void Radio::printPacket(uint8_t * data, uint8_t * len)
+{
+    Serial.print(F("Packet length: "));
+    Serial.println(*len);
+    for (uint8_t i = 0; i < *len; i++) {
+        Serial.print(data[i], HEX);
+        Serial.print(F(" "));
+    }
+    Serial.println();
 }
 
 void Radio::handle_message(uint8_t * dataPtr, uint8_t len)

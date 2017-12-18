@@ -61,6 +61,7 @@ private:
     uint8_t *_handshakeLen;
 
     void highlightHandshake();
+    void printPacket(uint8_t * data, uint8_t * len);
 };
 
 #endif
