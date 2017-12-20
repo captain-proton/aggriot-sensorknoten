@@ -14,7 +14,6 @@
 #define FLAG_A_TO_S								0b010000
 #define RF_UART_IN_TIMEOUT_MS			25 // Darf nicht viel höher sein. Sonst wird die Kommunikation potentiell zu lange blockiert
 #define MIN_DATA_SIZE							4
-#define MESSAGE_ACK_TIMEOUT				1000
 #define MESSAGE_TYPE_NACK_SEQNUM	0xff
 #define CRC16MASK									0xa001
 #define CRC32MASK									0x04c11db7
@@ -44,7 +43,7 @@ typedef struct __attribute__((packed)) {
 
 
 // Initialisierung:
-void communication_init(uint32_t sensorAddress);
+void communication_init(uint32_t sensorAddress, uint32_t ackTimeout);
 
 // Empfangenen Datenblock füttern:
 void communication_dataIn(uint8_t * dataPtr, uint8_t len);

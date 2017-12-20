@@ -62,6 +62,7 @@ static uint32_t currentSequenceNumber;	// Aktuelle Sequenznummer - AGGREGATOR
 static uint32_t simSeqNum;							// Simulierte Sequenznummer des Gegenübers - SENSOR
 static uint8_t currentRole;
 static uint32_t myAddress;							// Meine Adresse
+static uint32_t messageAckTimeout;			// Timeout für ACKs der Gegenseite
 #define ROLE_SENSOR			0
 #define ROLE_AGGREGATOR	1
 
@@ -80,12 +81,13 @@ uint32_t com_getMillis() __attribute__((weak));
 void com_println(char * msg) __attribute__((weak));
 #endif
 
-void communication_init(uint32_t sensorAddress) {
+void communication_init(uint32_t sensorAddress, uint32_t ackTimeout) {
 	static uint8_t inBuffer_space[100];
 	inBuffer = rb_createBuffer(&inBuffer_space[0], sizeof(inBuffer_space));
 	if (inBuffer) {
 		printf("Input buffer created.\n");
 	}
+	messageAckTimeout = ackTimeout;
 	myAddress = sensorAddress;
 #ifdef TESTING
 	srand(time(NULL));   // should only be called once
@@ -274,9 +276,12 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 		}
 	}
 	
+	// Aktualisieren, falls der Prozess dazwischen länger gedauert hat:
+	timeNow = com_getMillis();
+	
 	// Timeout für erwartete ACKs:
 	if (unAckedMessage) {
-		if ((timeNow - messageTimeout) > MESSAGE_ACK_TIMEOUT) {
+		if ((timeNow - messageTimeout) > messageAckTimeout) {
 			com_println("K"); //ACK T.\n");
 			unAckedMessage = 0;
 			com_messageTimeout();
@@ -565,7 +570,7 @@ int main() {
 	
 	// Aufsetzen:
 	//0xAB ,0xE3 ,0xF4 ,0xB1 
-	communication_init(0xb1f4e3ab);
+	communication_init(0xb1f4e3ab, 1000);
 	//communication_init(0x44332211);
 	
 	currentRole = ROLE_SENSOR;
@@ -641,7 +646,7 @@ int main() {
 	printf("\n\nEingang falsches ACK:\n\n");
 	
 	unAckedMessage = 0;						// Welche Sequenznummer hat die unbestätigte Nachricht die noch unterwegs ist?
-	messageTimeout = com_getMillis() - MESSAGE_ACK_TIMEOUT + 45;		// Timeout für eine unbestätigte Nachricht
+	messageTimeout = com_getMillis() - messageAckTimeout + 45;		// Timeout für eine unbestätigte Nachricht
 	currentSequenceNumber = 0;		// Aktuelle Sequenznummer
 	simSeqNum = 0;								// Simulierte Sequenznummer des Gegenübers
 	myAddress = 0xb1f4e3ab;
