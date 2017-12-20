@@ -378,30 +378,37 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 			return; // Kein gültiges ACK - da muss der Payload komplett \0 sein!
 		}
 		
+		uint8_t buf[12];
+		uint8_t * ptr = &buf[10];
+		uint32_t num = mHdr->sequenceNumber;
+		buf[11] = 0;
+		if (num) {
+			while (num) {
+				*ptr-- = (num % 10) + '0';
+				num /= 10;
+			}
+			com_println(ptr+1);
+		} else {
+			com_println("0");
+		}
+		com_println(":");
+		ptr = &buf[10];
+		num = unAckedMessage;
+		buf[11] = 0;
+		if (num) {
+			while (num) {
+				*ptr-- = (num % 10) + '0';
+				num /= 10;
+			}
+			com_println(ptr+1);
+		} else {
+			com_println("0");
+		}
+		com_println(".");
+		
 		// ACK-SeqNums müssen == unAckedMessage sein
 		if (mHdr->sequenceNumber != unAckedMessage) {
-			com_println("O="); // Wr ACK\n");
-			uint8_t buf[10];
-			uint8_t * ptr = &buf[8];
-			uint32_t num = mHdr->sequenceNumber;
-			buf[9] = '-';
-			while (num) {
-				*ptr-- = (num % 10) + '0';
-				num /= 10;
-			}
-			com_println(ptr+1);
-			com_println(":");
-			ptr = &buf[8];
-			num = unAckedMessage;
-			buf[9] = 0;
-			buf[8] = '0';
-			while (num) {
-				*ptr-- = (num % 10) + '0';
-				num /= 10;
-			}
-			com_println(ptr+1);
-			com_println(".");
-			
+			com_println("O"); // Wr ACK\n");
 			//printf("-> (%d recv vs %d expct.\n", mHdr->sequenceNumber, unAckedMessage);
 			return;
 		}
@@ -662,7 +669,7 @@ int main() {
 	
 	
 	
-	
+	/*
 	uint8_t ackOK[] =  {0xF9 ,0x30 ,0x04 ,0xAB ,0xE3 ,0xF4 ,0xB1 ,0x6D ,0x5 ,0x0 ,0x0 ,0xCC ,0x77 ,0xCB ,0x67 ,0x46 ,0xF5 ,0x8F ,0x3F ,0xBE ,0x08 ,0xF7 ,0xAD ,0x7D ,0xCF};
 	uint8_t ackNOK[] = {0xF9 ,0x30 ,0x04 ,0xAB ,0xE3 ,0xF4 ,0xB1 ,0x6E ,0x5 ,0x0 ,0x0 ,0xC1 ,0xDB ,0x13 ,0x95 ,0xFE ,0xDC ,0xDF ,0xB1 ,0x76 ,0xB1 ,0x54 ,0x64 ,0xF4 ,0xE4};
 	
@@ -676,6 +683,7 @@ int main() {
 		printf("############################################################ FEHLER\n");
 	}
 	
+	
 	printf("\n\nACK-Test NOK:\n\n");
 	simSeqNum = 0x56e;
 	unAckedMessage = 0x56e;
@@ -685,6 +693,8 @@ int main() {
 		printf("############################################################ FEHLER\n");
 	}
 	}
+	*/
+	
 	
 	//uint8_t testdata[] = {0xF9, 0x00, 0x0C, 0x44, 0x33, 0x22, 0x11, 0x3E, 0x00, 0x00, 0x00, 0x70, 0x5E, 0x1C, 0x2F, 0xA9, 0xD2, 0x64, 0x54, 0x35, 0x81, 0x8D, 0xD9, 0x76, 0x26, 0x14, 0x83, 0xAF, 0x67 };
 	//communication_dataIn(&testdata[0], sizeof(testdata));
