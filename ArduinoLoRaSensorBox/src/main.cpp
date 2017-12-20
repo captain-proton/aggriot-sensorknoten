@@ -121,7 +121,7 @@ extern "C" {
 #endif
 
 /** Defines the interval in milliseconds after new messages should be send */
-#define SEND_DELAY_MS               5000L - ACK_HIGHLIGHT_MS
+#define SEND_DELAY_MS               60000L - ACK_HIGHLIGHT_MS
 
 /** Defines the interval in milliseconds after an unsuccessful handshake should be executed again */
 #define HANDSHAKE_DELAY_MS          300000L
