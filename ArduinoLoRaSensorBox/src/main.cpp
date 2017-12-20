@@ -110,6 +110,10 @@ extern "C" {
     #include "aes.h"
 }
 
+#ifndef ACK_TIMEOUT_MS
+    #define ACK_TIMEOUT_MS          2000
+#endif
+
 #ifdef LED
     #define ACK_HIGHLIGHT_MS        10
 #else
@@ -117,7 +121,7 @@ extern "C" {
 #endif
 
 /** Defines the interval in milliseconds after new messages should be send */
-#define SEND_DELAY_MS               5000L - ACK_HIGHLIGHT_MS
+#define SEND_DELAY_MS               60000L - ACK_HIGHLIGHT_MS
 
 /** Defines the interval in milliseconds after an unsuccessful handshake should be executed again */
 #define HANDSHAKE_DELAY_MS          300000L
@@ -453,7 +457,7 @@ void setup()
     Serial.println(F("Enabled radio handshake"));
 
     #ifdef ADDRESS
-        communication_init(ADDRESS);
+        communication_init(ADDRESS, ACK_TIMEOUT_MS);
     #endif
     #ifdef PRE_SHARED_KEY
         #ifdef PSK_LEN

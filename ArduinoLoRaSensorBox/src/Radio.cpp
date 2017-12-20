@@ -22,6 +22,9 @@ void Radio::send(uint8_t *data, uint8_t len) {
     uint8_t buf[len];
     // copy all data from sensor readings into the buffer
     memcpy(buf, data, len);
+#ifdef LOG_DEBUG
+    printPacket(buf, &len);
+#endif
 
     if (_driver->send(data, len)) {
         _driver->waitPacketSent();
