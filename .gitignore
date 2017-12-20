@@ -11,3 +11,8 @@
 
 ## visual studio code
 .vscode
+
+## avr-gcc
+*.o
+dep/
+NUL

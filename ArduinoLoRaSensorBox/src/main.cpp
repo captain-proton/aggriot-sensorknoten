@@ -515,7 +515,16 @@ void com_processValidMessage(uint8_t * payload, uint8_t payloadLength) {
  * Callback method used by aggriotlib when a packet was not acked
  */
 void com_messageTimeout() {
+    Serial.println(F("main::com_messageTimeout"));
     radio.retry();
+}
+
+/**
+ * Callback method used by aggriotlib when a message should be printed
+ */
+void com_println(char * msg)
+{
+    Serial.println(msg);
 }
 
 /**
