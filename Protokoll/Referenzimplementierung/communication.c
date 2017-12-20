@@ -379,7 +379,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 		}
 		
 		// ACK-SeqNums müssen == unAckedMessage sein
-		if (mHdr->sequenceNumber == unAckedMessage) {
+		if (mHdr->sequenceNumber != unAckedMessage) {
 			com_println("O="); // Wr ACK\n");
 			uint8_t buf[10];
 			uint8_t * ptr = &buf[8];
