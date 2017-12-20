@@ -51,13 +51,14 @@ uint32_t crc_calcCRC32r(uint32_t crc, uint8_t c) {
 #else
 // Kill all printfs
 #define printf(x, ...)		
+#define com_println(x)
 #endif
 
 RB_BUFFER_t * inBuffer;									// Eingangspuffer
 static uint8_t executingCOMCheck = 0;		// Wird communication_poll gerade ausgeführt?
 static uint32_t lastByteReceived = 0; 			// Timeout für eingehende Bytes
 static uint32_t unAckedMessage;					// Welche Sequenznummer hat die unbestätigte Nachricht die noch unterwegs ist?
-static uint16_t messageTimeout;					// Timeout für eine unbestätigte Nachricht
+static uint32_t messageTimeout;					// Timeout für eine unbestätigte Nachricht
 static uint32_t currentSequenceNumber;	// Aktuelle Sequenznummer - AGGREGATOR
 static uint32_t simSeqNum;							// Simulierte Sequenznummer des Gegenübers - SENSOR
 static uint8_t currentRole;
@@ -383,6 +384,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 			return; // Kein gültiges ACK - da muss der Payload komplett \0 sein!
 		}
 		
+		/*
 		uint8_t buf[12];
 		uint8_t * ptr = &buf[10];
 		uint32_t num = mHdr->sequenceNumber;
@@ -410,6 +412,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 			com_println("0");
 		}
 		com_println(".");
+		*/
 		
 		// ACK-SeqNums müssen == unAckedMessage sein
 		if (mHdr->sequenceNumber != unAckedMessage) {
