@@ -379,9 +379,30 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 		}
 		
 		// ACK-SeqNums müssen == unAckedMessage sein
-		if (mHdr->sequenceNumber != unAckedMessage) {
-			com_println("O"); // Wr ACK\n");
-			printf("-> (%d recv vs %d expct.\n", mHdr->sequenceNumber, unAckedMessage);
+		if (mHdr->sequenceNumber == unAckedMessage) {
+			com_println("O="); // Wr ACK\n");
+			uint8_t buf[10];
+			uint8_t * ptr = &buf[8];
+			uint32_t num = mHdr->sequenceNumber;
+			buf[9] = '-';
+			while (num) {
+				*ptr-- = (num % 10) + '0';
+				num /= 10;
+			}
+			com_println(ptr+1);
+			com_println(":");
+			ptr = &buf[8];
+			num = unAckedMessage;
+			buf[9] = 0;
+			buf[8] = '0';
+			while (num) {
+				*ptr-- = (num % 10) + '0';
+				num /= 10;
+			}
+			com_println(ptr+1);
+			com_println(".");
+			
+			//printf("-> (%d recv vs %d expct.\n", mHdr->sequenceNumber, unAckedMessage);
 			return;
 		}
 		
