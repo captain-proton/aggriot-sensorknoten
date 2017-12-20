@@ -281,7 +281,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 	
 	// Timeout für erwartete ACKs:
 	if (unAckedMessage) {
-		if ((timeNow - messageTimeout) > messageAckTimeout) {
+		if (((uint32_t)timeNow - (uint32_t)messageTimeout) > messageAckTimeout) {
 			com_println("K"); //ACK T.\n");
 			unAckedMessage = 0;
 			com_messageTimeout();
