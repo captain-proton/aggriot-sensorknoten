@@ -57,7 +57,7 @@ RB_BUFFER_t * inBuffer;									// Eingangspuffer
 static uint8_t executingCOMCheck = 0;		// Wird communication_poll gerade ausgeführt?
 static uint32_t lastByteReceived = 0; 			// Timeout für eingehende Bytes
 static uint32_t unAckedMessage;					// Welche Sequenznummer hat die unbestätigte Nachricht die noch unterwegs ist?
-static uint16_t messageTimeout;					// Timeout für eine unbestätigte Nachricht
+static uint32_t messageTimeout;					// Timeout für eine unbestätigte Nachricht
 static uint32_t currentSequenceNumber;	// Aktuelle Sequenznummer - AGGREGATOR
 static uint32_t simSeqNum;							// Simulierte Sequenznummer des Gegenübers - SENSOR
 static uint8_t currentRole;
@@ -181,8 +181,6 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 								
 								// Eingehende Nachricht zu einem Sensor/Aggregator. Sind wir gemeint?
 								if ((mHdr->sensorAddress == myAddress) || (currentRole == ROLE_AGGREGATOR)) {
-									com_println("A"); //That's me!\n");
-									
 #ifdef USE_MAC									
 									// Versuchen die Nachricht zu entschlüsseln:
 									aes_cryptPayload(&messageData[0], max(cmdlen, MIN_DATA_SIZE), mHdr->sensorAddress, mHdr->sequenceNumber, mHdr->flags & FLAG_A_TO_S); // 1 = Incoming message
@@ -222,21 +220,13 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 									// Ist korrekt ver/entschlüsselt (und übertragen) worden?
 									if (calculatedCRC == mFtr->payloadCRC) {
 #endif
-										com_println("B"); //Val enc.\n");
+										//Val enc.\n");
 										// Nachricht verarbeiten:
 										com_messageReceived(mHdr, &messageData[0], cmdlen);
 										
-									} else { // .. nicht korrekt verschlüsselt: Nachricht ignorieren.
-										com_println("C"); //Inv enc.\n");
 									}
-								} else { // .. Nicht für uns. Ignorieren.
-									com_println("D"); //Not for me.");
 								}
-							} else { // .. Nachricht an den Aggregator. Ignorieren.
-								com_println("E"); //Us/Ds wr!\n");
 							}
-						} else { // .. Andere Protokollversion. Die kennen wir nicht. Ignorieren.
-							com_println("F"); //Wr V.\n");
 						}
 						
 					} else {
@@ -245,14 +235,10 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 						// Also einfach das "falsche" SYNC wegwerfen und nach einem neuen SYNC suchen:
 						rb_delete_sync(inBuffer, 1);
 						
-						com_println("G"); //Inv CRC.\n");
-						
 					}
 					
 					// Wir haben irgendetwas aus dem Eingangspuffer gelöscht - es könnte also noch ein Befehl vorhanden sein: Nächsten Befehl abarbeiten..
 					continue;
-				} else { // Nicht genug Daten für das Paket vorhanden
-					com_println("H"); //No data.\n");
 				}
 			} // Nicht genug Daten um die Länge zu ermitteln
 			
@@ -262,7 +248,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 			// nächsten SYNC-Byte.
 			
 			if ((timeNow - lastByteReceived) > RF_UART_IN_TIMEOUT_MS) {
-				com_println("I"); //Bt timeout.\n");
+				//Bt timeout.\n");
 				// SYNC wegwerfen:
 				rb_delete_sync(inBuffer, 1);
 				continue; // Und gleich beim nächsten Byte gucken ob das ein SYNC-Byte sein könnte..
@@ -272,7 +258,7 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 		} else {
 			// Zeichen wird verworfen:
 			rb_delete_sync(inBuffer, 1);
-			com_println("J"); //No SB..\n");
+			//No SB..\n");
 		}
 	}
 	
@@ -281,8 +267,8 @@ void communication_poll(void) { // Funktion wird regelmäßig (möglichst exakt jed
 	
 	// Timeout für erwartete ACKs:
 	if (unAckedMessage) {
-		if (((uint32_t)timeNow - (uint32_t)messageTimeout) > messageAckTimeout) {
-			com_println("K"); //ACK T.\n");
+		if ((timeNow - messageTimeout) > messageAckTimeout) {
+			//ACK T.\n");
 			unAckedMessage = 0;
 			com_messageTimeout();
 		}
@@ -370,10 +356,10 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 	uint32_t * intSeqNum;
 	
 	if (currentRole) {
-		com_println("L"); //M rec, r AGGR\n");
+		//M rec, r AGGR\n");
 		intSeqNum = &currentSequenceNumber;
 	} else {
-		com_println("M"); // M rec, r SENS\n");
+		// M rec, r SENS\n");
 		intSeqNum = &simSeqNum;
 	}
 	
@@ -383,37 +369,9 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 			return; // Kein gültiges ACK - da muss der Payload komplett \0 sein!
 		}
 		
-		uint8_t buf[12];
-		uint8_t * ptr = &buf[10];
-		uint32_t num = mHdr->sequenceNumber;
-		buf[11] = 0;
-		if (num) {
-			while (num) {
-				*ptr-- = (num % 10) + '0';
-				num /= 10;
-			}
-			com_println(ptr+1);
-		} else {
-			com_println("0");
-		}
-		com_println(":");
-		ptr = &buf[10];
-		num = unAckedMessage;
-		buf[11] = 0;
-		if (num) {
-			while (num) {
-				*ptr-- = (num % 10) + '0';
-				num /= 10;
-			}
-			com_println(ptr+1);
-		} else {
-			com_println("0");
-		}
-		com_println(".");
-		
 		// ACK-SeqNums müssen == unAckedMessage sein
 		if (mHdr->sequenceNumber != unAckedMessage) {
-			com_println("O"); // Wr ACK\n");
+			// Wr ACK\n");
 			//printf("-> (%d recv vs %d expct.\n", mHdr->sequenceNumber, unAckedMessage);
 			return;
 		}
@@ -426,13 +384,13 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 		
 		com_messageAcked();
 		
-		com_println("P"); //VALID ACK!\n");
+		//VALID ACK!\n");
 		
 		// Perfekt.
 	} else {
 		// Eingehende, neue Nachricht:
 		if (payload[0] == MESSAGE_TYPE_NACK_SEQNUM) {
-			com_println("Q"); //NACK seqnum! Forwarding..\n");
+			//NACK seqnum! Forwarding..\n");
 			// Semi-ACK, wir liegen mit der Sequenznummer zu weit zurück. Alte Nachricht muss wiederholt werden, allerdings mit neuer Sequenznummer:
 			if (*intSeqNum < mHdr->sequenceNumber) {
 				*intSeqNum = mHdr->sequenceNumber + 1;
@@ -443,7 +401,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 			
 		} else {
 			if (*intSeqNum < mHdr->sequenceNumber) {
-				com_println("R"); //Rec val msg. ACKing..\n");
+				//Rec val msg. ACKing..\n");
 				// ACK generieren, Nachricht empfangen:
 				communication_sendCommand(mHdr->sensorAddress, 0, 0, mHdr->sequenceNumber, 1); // 1=Is ACK, ohne Daten und mit Länge 0
 				// Anschließend die gültige Sequenznummer hoch zählen
@@ -451,7 +409,7 @@ void com_messageReceived(MessageHeader * mHdr, uint8_t * payload, uint8_t payloa
 				// .. und Nachricht weiter leiten:
 				com_processValidMessage(payload, payloadLength);
 			} else {
-				com_println("S"); //Low seqnum. Rej..\n");
+				//Low seqnum. Rej..\n");
 				// Versuch uns eine Nachricht mit zu kleiner Sequenznummer unter zu jubeln. Wir antworten mit 255er-Nachricht und aktuelle Sequenznummer + 1
 				uint8_t byte255 = MESSAGE_TYPE_NACK_SEQNUM;
 				communication_sendCommand(mHdr->sensorAddress, &byte255, 1, *intSeqNum + 1, 0); 
